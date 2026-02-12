@@ -884,7 +884,6 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
         <article className="dashboard-card timeline">
           <header>
             <h3>Linha do tempo</h3>
-            <span className="text-muted">Ultimas sessoes</span>
           </header>
           <div className="timeline-list">
             {sessions.length === 0 ? (
@@ -1634,7 +1633,6 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
         <article className="dashboard-card quests">
           <header>
             <h3>Quest log</h3>
-            <span className="text-muted">Status das missoes</span>
           </header>
           <ul className="quest-list">
             {quests.length === 0 ? (
@@ -1799,7 +1797,6 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
         <article className="dashboard-card dice">
           <header>
             <h3>Rolador de dados</h3>
-            <span className="text-muted">Fisica 3D custom</span>
           </header>
           <DiceRoller />
         </article>
@@ -1855,7 +1852,6 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
         <article className="dashboard-card next">
           <header>
             <h3>Proxima sessao</h3>
-            <span className="text-muted">Checklist rapido</span>
           </header>
           <div className="checklist">
             <label><input type="checkbox" /> Revisar encontros</label>
