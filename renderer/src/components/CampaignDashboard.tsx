@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import DiceRoller from './DiceRoller'
 import './CampaignDashboard.css'
 
@@ -96,6 +96,524 @@ interface MasterNote {
   updatedAt: Date
 }
 
+type TurnPeriodId = 'manha' | 'tarde' | 'noite' | 'madrugada'
+
+type TurnMonitorPVRow = {
+  name: string
+  max: string
+  current: string
+}
+
+type TurnMonitorMonsterRow = {
+  group: string
+  area: string
+  notes: string
+}
+
+type TurnMonitorEffectRow = {
+  effect: string
+  duration: string
+}
+
+type TurnMonitorData = {
+  periods: Record<TurnPeriodId, boolean[]>
+  orderOfMarch: string
+  orderOfWatch: string
+  actions: boolean[]
+  encounterTable: string[]
+  encounterEnvironment: EncounterEnvironment
+  encounterDifficulty: EncounterDifficulty
+  pvRows: TurnMonitorPVRow[]
+  monsterRows: TurnMonitorMonsterRow[]
+  effectRows: TurnMonitorEffectRow[]
+}
+
+type EncounterEnvironment =
+  | 'floresta'
+  | 'deserto'
+  | 'montanha'
+  | 'pantano'
+  | 'urbano'
+  | 'masmorra'
+  | 'costeiro'
+
+type EncounterDifficulty = 'easy' | 'medium' | 'hard' | 'deadly'
+
+const TURN_SLOT_COUNT = 6
+const PV_ROW_COUNT = 6
+const EFFECT_ROW_COUNT = 6
+const MONSTER_ROW_COUNT = 6
+
+const TURN_PERIODS = [
+  { id: 'manha' as TurnPeriodId, label: 'Período da manhã' },
+  { id: 'tarde' as TurnPeriodId, label: 'Período da tarde' },
+  { id: 'noite' as TurnPeriodId, label: 'Período da noite' },
+  { id: 'madrugada' as TurnPeriodId, label: 'Período da madrugada' }
+]
+
+const TURN_SLOTS = Array.from({ length: TURN_SLOT_COUNT }, (_, index) => index + 1)
+
+const DUNGEON_ACTIONS = [
+  'Movimentar-se',
+  'Conversar',
+  'Procurar',
+  'Ultrapassar obstáculo',
+  'Ficar atento aos arredores',
+  'Conjurar ritual',
+  'Combater',
+  'Ajudar um ao outro',
+  'Outras ações'
+]
+
+const ENCOUNTER_ROLLS = ['1-2', '3', '4', '5', '6', '7', '8', '9', '10']
+
+const REACTION_TABLE = [
+  { roll: '2-3', result: 'Ataca na hora' },
+  { roll: '4-6', result: 'Hostil, pode atacar' },
+  { roll: '7-9', result: 'Incerto, ameaçado' },
+  { roll: '10-11', result: 'Neutro, pode negociar' },
+  { roll: '12+', result: 'Amigável' }
+]
+
+const ENCOUNTER_ENVIRONMENTS: Array<{ id: EncounterEnvironment; label: string }> = [
+  { id: 'floresta', label: 'Floresta' },
+  { id: 'deserto', label: 'Deserto' },
+  { id: 'montanha', label: 'Montanha' },
+  { id: 'pantano', label: 'Pântano' },
+  { id: 'urbano', label: 'Urbano' },
+  { id: 'masmorra', label: 'Masmorra' },
+  { id: 'costeiro', label: 'Costeiro' }
+]
+
+const ENCOUNTER_DIFFICULTIES: Array<{ id: EncounterDifficulty; label: string }> = [
+  { id: 'easy', label: 'Fácil' },
+  { id: 'medium', label: 'Médio' },
+  { id: 'hard', label: 'Difícil' },
+  { id: 'deadly', label: 'Mortal' }
+]
+
+const ENCOUNTER_TABLES: Record<EncounterEnvironment, Record<EncounterDifficulty, string[]>> = {
+  floresta: {
+    easy: [
+      '1d4 lobos',
+      '1d6 goblins exploradores',
+      '1d4 javalis',
+      '1d4 bandidos',
+      '1d6 kobolds',
+      '1 urso negro',
+      '1d4 aranhas grandes',
+      '1d4 batedores élficos',
+      '1d6 esqueletos',
+      '1d4 lobos gigantes'
+    ],
+    medium: [
+      '1d6 lobos + 1 lobo gigante',
+      '1d8 goblins',
+      '1d4 ursos negros',
+      '1d6 hobgoblins',
+      '1d4 aranhas gigantes',
+      '1 druida + 1d4 animais',
+      '1d4 saqueadores orcs',
+      '1 espírito da floresta',
+      '1d6 zumbis errantes',
+      '1d4 corredores worg'
+    ],
+    hard: [
+      '1 urso-coruja',
+      '1d6 orcs + 1 chefe orc',
+      '1d4 worgs + 1d4 goblins',
+      '1 treant ferido',
+      '1d6 dríades + 1d4 lobos',
+      '1 troll faminto',
+      '1d6 espectros',
+      '1d4 ogros',
+      '1 quimera jovem',
+      '1d6 lobos terríveis'
+    ],
+    deadly: [
+      '1 hidra jovem',
+      '1 druida + 1 elemental do ar',
+      '1 gigante das colinas',
+      '1 dragão verde jovem',
+      '1d4 trolls',
+      '1d6 ogros + 1 ogro mago',
+      '1 bando de licantropos',
+      '1d4 mantícoras',
+      '1 entidade férica antiga',
+      '1d6 worgs + 1d6 goblins'
+    ]
+  },
+  deserto: {
+    easy: [
+      '1d4 escorpiões gigantes',
+      '1d6 bandidos do deserto',
+      '1d4 chacais',
+      '1d4 kobolds perdidos',
+      '1d6 esqueletos',
+      '1d4 abutres',
+      '1 saqueador gnoll',
+      '1d4 cultistas',
+      '1d6 lagartos do deserto',
+      '1d4 mercenários'
+    ],
+    medium: [
+      '1d6 gnolls',
+      '1d4 escorpiões gigantes + 1 enxame',
+      '1d6 hobgoblins',
+      '1d4 saqueadores orcs',
+      '1 elemental de areia',
+      '1d4 lagartos gigantes',
+      '1d6 esqueletos + 1 morto-vivo',
+      '1d4 camelos selvagens',
+      '1d4 bandidos + 1 líder',
+      '1d6 kobolds + 1 dracólito'
+    ],
+    hard: [
+      '1 manticora',
+      '1d4 ogros',
+      '1d6 gnolls + 1 chefe gnoll',
+      '1 verme púrpura juvenil',
+      '1d4 elementais menores',
+      '1d6 espectros do deserto',
+      '1 gigante das colinas',
+      '1d4 salamandras',
+      '1 naga guardiã',
+      '1 dragão azul jovem'
+    ],
+    deadly: [
+      '1 dragão azul adulto',
+      '1 esfinge',
+      '1d4 gigantes das colinas',
+      '1 marid irado',
+      '1 colosso de pedra',
+      '1d6 salamandras + 1 efreeti',
+      '1d4 manticoras',
+      '1 devorador de areia',
+      '1d6 espectros + 1 espectro maior',
+      '1 verme púrpura'
+    ]
+  },
+  montanha: {
+    easy: [
+      '1d4 cabras monteses',
+      '1d6 batedores goblins',
+      '1d4 lobos gigantes',
+      '1d4 bandoleiros',
+      '1d6 kobolds da rocha',
+      '1 águia gigante',
+      '1d4 aranhas grandes',
+      '1d4 cultistas',
+      '1d6 esqueletos',
+      '1d4 hobgoblins'
+    ],
+    medium: [
+      '1d4 ogros',
+      '1d6 orcs',
+      '1 urso-coruja',
+      '1d4 harpias',
+      '1 elemental do ar menor',
+      '1d4 salamandras',
+      '1d6 hobgoblins',
+      '1d4 gigantes de pedra jovens',
+      '1d6 cultistas + 1 acólito',
+      '1d4 trolls das montanhas'
+    ],
+    hard: [
+      '1 gigante das pedras',
+      '1d4 mantícoras',
+      '1d6 ogros + 1 ogro mago',
+      '1 wyvern',
+      '1d4 elemental do ar',
+      '1 dragão branco jovem',
+      '1d6 trolls',
+      '1d4 gigantes do gelo jovens',
+      '1d6 harpias + 1 líder',
+      '1 golem de pedra'
+    ],
+    deadly: [
+      '1 dragão vermelho jovem',
+      '1 gigante do gelo',
+      '1d4 wyverns',
+      '1 roc',
+      '1d4 gigantes das pedras',
+      '1 elemental do ar maior',
+      '1d6 mantícoras',
+      '1 dragão branco adulto',
+      '1d4 trolls + 1 troll mago',
+      '1 colosso das montanhas'
+    ]
+  },
+  pantano: {
+    easy: [
+      '1d4 sapos gigantes',
+      '1d6 kobolds',
+      '1d4 zombies',
+      '1d4 sanguessugas gigantes',
+      '1d6 bandidos',
+      '1 enxame de insetos',
+      '1d4 goblins',
+      '1d4 cultistas',
+      '1d6 rãs venenosas',
+      '1d4 crocodilos'
+    ],
+    medium: [
+      '1d4 homens-lagarto',
+      '1d6 mortos-vivos',
+      '1d4 jacarés gigantes',
+      '1d6 hobgoblins',
+      '1 bruxa do pântano',
+      '1d4 yuan-ti batedores',
+      '1d6 espectros',
+      '1d4 ogros',
+      '1d6 cultistas + 1 líder',
+      '1d4 aranhas gigantes'
+    ],
+    hard: [
+      '1 troll',
+      '1d4 yuan-ti',
+      '1d6 homens-lagarto + 1 chefe',
+      '1 hydra jovem',
+      '1d4 ogros + 1 ogro mago',
+      '1d6 espectros + 1 wraith',
+      '1 bruxa + 1d4 mortos-vivos',
+      '1 elemental de água',
+      '1d4 crocodilos gigantes',
+      '1 beholder cinzento'
+    ],
+    deadly: [
+      '1 hydra',
+      '1 beholder',
+      '1 dragão negro jovem',
+      '1d4 trolls',
+      '1 elemental de água maior',
+      '1 naga guardiã',
+      '1d6 yuan-ti + 1 abominação',
+      '1 colosso do pântano',
+      '1 enxame de mortos-vivos',
+      '1d4 crocodilos gigantes + 1 alfa'
+    ]
+  },
+  urbano: {
+    easy: [
+      '1d4 ladrões',
+      '1d6 guardas corruptos',
+      '1d4 batedores',
+      '1d6 cultistas',
+      '1 enxame de ratos',
+      '1d4 bandidos',
+      '1d6 mercenários',
+      '1d4 agitadores',
+      '1d6 espiões',
+      '1d4 vigias'
+    ],
+    medium: [
+      '1d6 veteranos',
+      '1d4 assassinos',
+      '1d6 guardas',
+      '1d4 cultistas + 1 líder',
+      '1d4 bandidos + 1 capitão',
+      '1d6 mercenários',
+      '1 mago aprendiz',
+      '1d6 saqueadores',
+      '1d4 rufiões',
+      '1d6 espiões'
+    ],
+    hard: [
+      '1d4 veteranos + 1 capitão',
+      '1 assassino + 1d4 batedores',
+      '1d6 guarda de elite',
+      '1d4 cultistas + 1 sacerdote',
+      '1 goleiro arcano',
+      '1d4 mercenários + 1 líder',
+      '1d4 bandidos + 1 mago',
+      '1d6 monstros disfarçados',
+      '1d4 demônios menores',
+      '1d4 caçadores de recompensas'
+    ],
+    deadly: [
+      '1 arquimago',
+      '1d4 guardas de elite + 1 capitão',
+      '1 assassino lendário',
+      '1d4 demônios + 1 invocador',
+      '1 vampiro',
+      '1 lich disfarçado',
+      '1d4 caçadores de recompensa veteranos',
+      '1d6 monstros disfarçados + 1 chefe',
+      '1d4 campeões sagrados',
+      '1 dragão disfarçado'
+    ]
+  },
+  masmorra: {
+    easy: [
+      '1d6 esqueletos',
+      '1d4 kobolds',
+      '1d6 goblins',
+      '1d4 zumbis',
+      '1 enxame de ratos',
+      '1d4 bandidos',
+      '1d6 cultistas',
+      '1d4 aranhas grandes',
+      '1d6 slimes',
+      '1d4 guardas de ruína'
+    ],
+    medium: [
+      '1d6 mortos-vivos',
+      '1d4 hobgoblins',
+      '1d6 orcs',
+      '1d4 ogros',
+      '1d6 cultistas + 1 líder',
+      '1d4 aranhas gigantes',
+      '1d4 aberrações menores',
+      '1d6 espectros',
+      '1d4 slimes + 1 otyugh',
+      '1d6 kobolds + 1 dracólito'
+    ],
+    hard: [
+      '1 beholder menor',
+      '1d4 ogros + 1 ogro mago',
+      '1d6 trolls',
+      '1d4 elementais',
+      '1d4 aberrações',
+      '1d6 mortos-vivos + 1 wraith',
+      '1d4 guardas espectrais',
+      '1d6 orcs + 1 chefe orc',
+      '1 gelatinous cube',
+      '1 wyvern subterrâneo'
+    ],
+    deadly: [
+      '1 beholder',
+      '1d4 wraiths',
+      '1 dragão vermelho jovem',
+      '1d4 ogros magos',
+      '1d6 trolls + 1 troll mago',
+      '1d4 aberrações maiores',
+      '1 lich',
+      '1 demon lord menor',
+      '1 guardião titânico',
+      '1 colosso arcano'
+    ]
+  },
+  costeiro: {
+    easy: [
+      '1d6 bandidos costeiros',
+      '1d4 saqueadores',
+      '1 enxame de gaivotas',
+      '1d4 caranguejos gigantes',
+      '1d6 piratas',
+      '1d4 tritões',
+      '1d6 kobolds',
+      '1d4 sahuagin batedores',
+      '1d4 marinheiros',
+      '1d6 cultistas'
+    ],
+    medium: [
+      '1d6 sahuagin',
+      '1d4 piratas + 1 capitão',
+      '1 elemental de água menor',
+      '1d4 caranguejos gigantes + 1 enxame',
+      '1d6 tritões',
+      '1d4 bandidos + 1 líder',
+      '1d6 mercenários',
+      '1d4 mortos-vivos afogados',
+      '1d6 kobolds + 1 dracólito',
+      '1d4 místicos do mar'
+    ],
+    hard: [
+      '1 elemental de água',
+      '1d4 sahuagin + 1 barão',
+      '1 hydra jovem',
+      '1d4 piratas veteranos',
+      '1d6 tritões + 1 líder',
+      '1d4 mortos-vivos + 1 wraith',
+      '1d4 mantícoras',
+      '1d6 ogros',
+      '1 bruxa marinha',
+      '1 dragão de bronze jovem'
+    ],
+    deadly: [
+      '1 kraken juvenil',
+      '1 dragão de bronze adulto',
+      '1 elemental de água maior',
+      '1d4 sahuagin + 1 campeão',
+      '1 hydra',
+      '1 leviatã',
+      '1d6 mantícoras',
+      '1d4 ogros magos',
+      '1 colosso marítimo',
+      '1 frota pirata hostil'
+    ]
+  }
+}
+
+const isEncounterEnvironment = (value: string): value is EncounterEnvironment =>
+  ENCOUNTER_ENVIRONMENTS.some((env) => env.id === value)
+
+const isEncounterDifficulty = (value: string): value is EncounterDifficulty =>
+  ENCOUNTER_DIFFICULTIES.some((diff) => diff.id === value)
+
+const createDefaultTurnMonitorData = (): TurnMonitorData => ({
+  periods: {
+    manha: Array(TURN_SLOT_COUNT).fill(false),
+    tarde: Array(TURN_SLOT_COUNT).fill(false),
+    noite: Array(TURN_SLOT_COUNT).fill(false),
+    madrugada: Array(TURN_SLOT_COUNT).fill(false)
+  },
+  orderOfMarch: '',
+  orderOfWatch: '',
+  actions: Array(DUNGEON_ACTIONS.length).fill(false),
+  encounterTable: Array(ENCOUNTER_ROLLS.length).fill(''),
+  encounterEnvironment: 'floresta',
+  encounterDifficulty: 'medium',
+  pvRows: Array.from({ length: PV_ROW_COUNT }, () => ({ name: '', max: '', current: '' })),
+  monsterRows: Array.from({ length: MONSTER_ROW_COUNT }, () => ({ group: '', area: '', notes: '' })),
+  effectRows: Array.from({ length: EFFECT_ROW_COUNT }, () => ({ effect: '', duration: '' }))
+})
+
+const normalizeArray = <T,>(value: T[] | undefined, length: number, fallback: T): T[] => {
+  return Array.from({ length }, (_, index) => value?.[index] ?? fallback)
+}
+
+const normalizeTurnMonitorData = (value?: Partial<TurnMonitorData> | null): TurnMonitorData => {
+  const defaults = createDefaultTurnMonitorData()
+  if (!value) return defaults
+  const normalizedEnvironment =
+    value.encounterEnvironment && isEncounterEnvironment(value.encounterEnvironment)
+      ? value.encounterEnvironment
+      : defaults.encounterEnvironment
+  const normalizedDifficulty =
+    value.encounterDifficulty && isEncounterDifficulty(value.encounterDifficulty)
+      ? value.encounterDifficulty
+      : defaults.encounterDifficulty
+  const periods = TURN_PERIODS.reduce((acc, period) => {
+    acc[period.id] = normalizeArray(value.periods?.[period.id], TURN_SLOT_COUNT, false)
+    return acc
+  }, {} as Record<TurnPeriodId, boolean[]>)
+
+  return {
+    ...defaults,
+    ...value,
+    periods,
+    actions: normalizeArray(value.actions, DUNGEON_ACTIONS.length, false),
+    encounterTable: normalizeArray(value.encounterTable, ENCOUNTER_ROLLS.length, ''),
+    encounterEnvironment: normalizedEnvironment,
+    encounterDifficulty: normalizedDifficulty,
+    pvRows: Array.from({ length: PV_ROW_COUNT }, (_, index) => ({
+      name: value.pvRows?.[index]?.name ?? '',
+      max: value.pvRows?.[index]?.max ?? '',
+      current: value.pvRows?.[index]?.current ?? ''
+    })),
+    monsterRows: Array.from({ length: MONSTER_ROW_COUNT }, (_, index) => ({
+      group: value.monsterRows?.[index]?.group ?? '',
+      area: value.monsterRows?.[index]?.area ?? '',
+      notes: value.monsterRows?.[index]?.notes ?? ''
+    })),
+    effectRows: Array.from({ length: EFFECT_ROW_COUNT }, (_, index) => ({
+      effect: value.effectRows?.[index]?.effect ?? '',
+      duration: value.effectRows?.[index]?.duration ?? ''
+    }))
+  }
+}
+
 type ProficiencyLevel = 'none' | 'proficient' | 'expertise'
 
 interface ProficiencyEntry {
@@ -181,6 +699,9 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     reward: '',
     notes: ''
   })
+  const [turnMonitor, setTurnMonitor] = useState<TurnMonitorData>(() => createDefaultTurnMonitorData())
+  const [turnMonitorStatus, setTurnMonitorStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const hasLoadedTurnMonitorRef = useRef(false)
 
   const getProficiencyBonusForLevel = (level: number) => {
     const normalizedLevel = Math.max(1, Number(level) || 1)
@@ -200,6 +721,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     loadNpcs()
     loadQuests()
     loadMasterNote()
+    loadTurnMonitor()
   }, [campaignId])
 
   useEffect(() => {
@@ -228,7 +750,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       const data = await window.electron.sessions.getByCapaign(campaignId)
       setSessions(data)
     } catch (error) {
-      console.error('Erro ao carregar sessoes:', error)
+      console.error('Erro ao carregar sessões:', error)
     }
   }
 
@@ -265,9 +787,43 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       setMasterNote(data)
       setMasterNoteContent(data?.content || '')
     } catch (error) {
-      console.error('Erro ao carregar anotacoes do mestre:', error)
+      console.error('Erro ao carregar anotações do mestre:', error)
     }
   }
+
+  const loadTurnMonitor = async () => {
+    try {
+      const data = await window.electron.turnMonitor.getByCampaign(campaignId)
+      const parsed = data?.content ? JSON.parse(data.content) : null
+      setTurnMonitor(normalizeTurnMonitorData(parsed))
+      setTurnMonitorStatus('idle')
+    } catch (error) {
+      console.error('Erro ao carregar monitoramento de turnos:', error)
+      setTurnMonitor(createDefaultTurnMonitorData())
+      setTurnMonitorStatus('error')
+    } finally {
+      hasLoadedTurnMonitorRef.current = true
+    }
+  }
+
+  const saveTurnMonitor = useCallback(async (data: TurnMonitorData, showStatus = true) => {
+    try {
+      if (showStatus) {
+        setTurnMonitorStatus('saving')
+      }
+      await window.electron.turnMonitor.save({
+        campaignId,
+        content: JSON.stringify(data)
+      })
+      if (showStatus) {
+        setTurnMonitorStatus('saved')
+        setTimeout(() => setTurnMonitorStatus('idle'), 1400)
+      }
+    } catch (error) {
+      console.error('Erro ao salvar monitoramento de turnos:', error)
+      setTurnMonitorStatus('error')
+    }
+  }, [campaignId])
 
   const resetPlayerForm = () => {
     setPlayerForm({
@@ -614,7 +1170,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       setMasterNote(data)
       setIsMasterNoteOpen(false)
     } catch (error) {
-      console.error('Erro ao salvar anotacoes do mestre:', error)
+      console.error('Erro ao salvar anotações do mestre:', error)
     }
   }
 
@@ -681,7 +1237,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       await window.electron.players.update(player.id, buildPlayerUpdatePayload(player, { inspiration: false }))
       loadPlayers()
     } catch (error) {
-      console.error('Erro ao remover inspiracao:', error)
+      console.error('Erro ao remover inspiração:', error)
     }
   }
 
@@ -837,9 +1393,96 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     skillEntries.map((entry) => entry.proficiency).join(',')
   ])
 
+  useEffect(() => {
+    if (!hasLoadedTurnMonitorRef.current) return
+    const timer = setTimeout(() => {
+      saveTurnMonitor(turnMonitor, false)
+    }, 700)
+    return () => clearTimeout(timer)
+  }, [saveTurnMonitor, turnMonitor])
+
   const formatDate = (value?: Date | null) => {
-    if (!value) return 'Sem sessoes'
+    if (!value) return 'Sem sessões'
     return new Date(value).toLocaleDateString('pt-BR')
+  }
+
+  const turnMonitorStatusLabel =
+    turnMonitorStatus === 'saving'
+      ? 'Salvando...'
+      : turnMonitorStatus === 'saved'
+        ? 'Salvo'
+        : turnMonitorStatus === 'error'
+          ? 'Erro ao salvar'
+          : ''
+
+  const updateTurnPeriod = (periodId: TurnPeriodId, index: number, value: boolean) => {
+    setTurnMonitor((prev) => ({
+      ...prev,
+      periods: {
+        ...prev.periods,
+        [periodId]: prev.periods[periodId].map((slot, slotIndex) =>
+          slotIndex === index ? value : slot
+        )
+      }
+    }))
+  }
+
+  const updateTurnAction = (index: number, value: boolean) => {
+    setTurnMonitor((prev) => ({
+      ...prev,
+      actions: prev.actions.map((action, actionIndex) =>
+        actionIndex === index ? value : action
+      )
+    }))
+  }
+
+  const updateEncounterTable = (index: number, value: string) => {
+    setTurnMonitor((prev) => ({
+      ...prev,
+      encounterTable: prev.encounterTable.map((entry, entryIndex) =>
+        entryIndex === index ? value : entry
+      )
+    }))
+  }
+
+  const fillEncounterTable = () => {
+    setTurnMonitor((prev) => {
+      const environment = prev.encounterEnvironment
+      const difficulty = prev.encounterDifficulty
+      const fallback = ENCOUNTER_TABLES.floresta.medium
+      const table =
+        ENCOUNTER_TABLES[environment]?.[difficulty] ||
+        ENCOUNTER_TABLES[environment]?.medium ||
+        fallback
+      const normalizedTable = Array.from({ length: ENCOUNTER_ROLLS.length }, (_, index) =>
+        table[index] ?? ''
+      )
+      return { ...prev, encounterTable: normalizedTable }
+    })
+  }
+
+  const updatePvRow = (index: number, key: keyof TurnMonitorPVRow, value: string) => {
+    setTurnMonitor((prev) => {
+      const nextRows = [...prev.pvRows]
+      nextRows[index] = { ...nextRows[index], [key]: value }
+      return { ...prev, pvRows: nextRows }
+    })
+  }
+
+  const updateMonsterRow = (index: number, key: keyof TurnMonitorMonsterRow, value: string) => {
+    setTurnMonitor((prev) => {
+      const nextRows = [...prev.monsterRows]
+      nextRows[index] = { ...nextRows[index], [key]: value }
+      return { ...prev, monsterRows: nextRows }
+    })
+  }
+
+  const updateEffectRow = (index: number, key: keyof TurnMonitorEffectRow, value: string) => {
+    setTurnMonitor((prev) => {
+      const nextRows = [...prev.effectRows]
+      nextRows[index] = { ...nextRows[index], [key]: value }
+      return { ...prev, effectRows: nextRows }
+    })
   }
 
   return (
@@ -849,11 +1492,11 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           <p className="hero-kicker">Campanha ativa</p>
           <h2>{campaign?.name || 'Campanha sem nome'}</h2>
           <p className="hero-subtitle">
-            Comece a proxima sessao e acompanhe o progresso da historia.
+            Comece a próxima sessão e acompanhe o progresso da história.
           </p>
           <div className="hero-actions">
             <button className="btn-primary" onClick={onStartSession}>
-              Iniciar sessao
+              Iniciar sessão
             </button>
             <button className="btn-secondary" onClick={loadSessions}>
               Atualizar dados
@@ -862,7 +1505,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
         </div>
         <div className="hero-panel">
           <div className="stat-card">
-            <span className="stat-label">Sessoes gravadas</span>
+            <span className="stat-label">Sessões gravadas</span>
             <span className="stat-value">{stats.total}</span>
           </div>
           <div className="stat-card">
@@ -870,11 +1513,11 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
             <span className="stat-value">{stats.totalMinutes} min</span>
           </div>
           <div className="stat-card">
-            <span className="stat-label">Ultima sessao</span>
+            <span className="stat-label">Última sessão</span>
             <span className="stat-value">{formatDate(stats.lastSessionDate)}</span>
           </div>
           <div className="stat-card">
-            <span className="stat-label">Sessoes concluidas</span>
+            <span className="stat-label">Sessões concluídas</span>
             <span className="stat-value">{stats.completed}</span>
           </div>
         </div>
@@ -887,7 +1530,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           </header>
           <div className="timeline-list">
             {sessions.length === 0 ? (
-              <div className="dashboard-empty">Nenhuma sessao registrada.</div>
+              <div className="dashboard-empty">Nenhuma sessão registrada.</div>
             ) : (
               sessions.slice(0, 5).map((session) => (
                 <div key={session.id} className="timeline-item">
@@ -895,7 +1538,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                   <div>
                     <strong>{formatDate(new Date(session.startedAt))}</strong>
                     <p className="text-muted">
-                      {session.endedAt ? 'Sessao encerrada' : 'Sessao em andamento'}
+                      {session.endedAt ? 'Sessão encerrada' : 'Sessão em andamento'}
                     </p>
                   </div>
                 </div>
@@ -925,8 +1568,8 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                       <span className="npc-location">{npc.location || 'Local desconhecido'}</span>
                     </div>
                     <div className="npc-meta">
-                      <span>{npc.race || 'Raca desconhecida'}</span>
-                      <span>{npc.occupation || 'Ocupacao indefinida'}</span>
+                      <span>{npc.race || 'Raça desconhecida'}</span>
+                      <span>{npc.occupation || 'Ocupação indefinida'}</span>
                     </div>
                     {tagList.length > 0 && (
                       <div className="npc-tags">
@@ -994,7 +1637,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                 </div>
                 <div className="player-form">
                   <div className="player-form-section">
-                    <h5>Informacoes basicas</h5>
+                    <h5>Informações básicas</h5>
                     <div className="player-form-grid">
                       <label className="field">
                         <span>Nome</span>
@@ -1006,7 +1649,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                         />
                       </label>
                       <label className="field">
-                        <span>Raca</span>
+                        <span>Raça</span>
                         <input
                           type="text"
                           value={npcForm.race}
@@ -1015,7 +1658,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                         />
                       </label>
                       <label className="field">
-                        <span>Ocupacao</span>
+                        <span>Ocupação</span>
                         <input
                           type="text"
                           value={npcForm.occupation}
@@ -1033,7 +1676,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                         />
                       </label>
                       <label className="field">
-                        <span>Tags (separadas por virgula)</span>
+                        <span>Tags (separadas por vírgula)</span>
                         <input
                           type="text"
                           value={npcForm.tags}
@@ -1046,7 +1689,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                   <div className="player-form-section">
                     <h5>Notas</h5>
                     <label className="field">
-                      <span>Observacoes</span>
+                      <span>Observações</span>
                       <textarea
                         value={npcForm.notes}
                         readOnly={isNpcReadOnly}
@@ -1092,10 +1735,10 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                           <button
                             className="player-inspiration"
                             onClick={() => clearPlayerInspiration(player)}
-                            title="Remover inspiracao"
-                            aria-label="Remover inspiracao"
+                            title="Remover inspiração"
+                            aria-label="Remover inspiração"
                           >
-                            Inspiracao
+                            Inspiração
                           </button>
                         )}
                       </div>
@@ -1133,7 +1776,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                       </div>
                     </div>
                   <span className="text-muted">
-                    {player.className} {player.subclass ? `(${player.subclass})` : ''} (Nivel {player.level}) - {player.ancestry}
+                      {player.className} {player.subclass ? `(${player.subclass})` : ''} (Nível {player.level}) - {player.ancestry}
                   </span>
                   <div className="player-stats">
                     <span>CA {player.armorClass}</span>
@@ -1191,7 +1834,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                 </div>
                 <div className="player-form">
                   <div className="player-form-section">
-                    <h5>Dados basicos</h5>
+                    <h5>Dados básicos</h5>
                     <div className="player-form-grid">
                       <label className="field">
                         <span>Nome do personagem</span>
@@ -1226,7 +1869,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                         />
                       </label>
                       <label className="field">
-                        <span>Nivel</span>
+                        <span>Nível</span>
                         <input
                           type="number"
                           min={1}
@@ -1259,7 +1902,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                         />
                       </label>
                       <label className="field">
-                        <span>Experiencia</span>
+                        <span>Experiência</span>
                         <input
                           type="number"
                           min={0}
@@ -1279,10 +1922,10 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                           checked={playerForm.inspiration}
                           onChange={(event) => setPlayerForm({ ...playerForm, inspiration: event.target.checked })}
                         />
-                        Inspiracao
+                        Inspiração
                       </label>
                       <label className="field">
-                        <span>Bonus de proficiencia</span>
+                        <span>Bônus de proficiência</span>
                         <input
                           type="number"
                           min={0}
@@ -1430,7 +2073,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                   </div>
 
                   <div className="player-form-section">
-                    <h5>Pericias e salvaguardas</h5>
+                    <h5>Perícias e salvaguardas</h5>
                     <label className="field proficiency-notes">
                       <span>Proficiencias gerais</span>
                       <textarea
@@ -1467,14 +2110,14 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                                 type="text"
                                 value={formatMod(getProficiencyBonusValue(entry))}
                                 readOnly
-                                title="Bonus de proficiencia"
+                                title="Bônus de proficiência"
                               />
                               <input
                                 className="proficiency-value"
                                 type="text"
                                 value={formatMod(abilityMod(savingThrowAbilityMap[entry.key]))}
                                 readOnly
-                                title="Bonus de atributo"
+                                title="Bônus de atributo"
                               />
                               <input
                                 className="proficiency-total"
@@ -1488,7 +2131,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                         </div>
                       </div>
                       <div className="proficiency-block">
-                        <span className="proficiency-title">Pericias</span>
+                        <span className="proficiency-title">Perícias</span>
                         <div className="proficiency-grid">
                           {skillEntries.map((entry) => (
                             <div key={entry.key} className="proficiency-row">
@@ -1515,14 +2158,14 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                                 type="text"
                                 value={formatMod(getProficiencyBonusValue(entry))}
                                 readOnly
-                                title="Bonus de proficiencia"
+                                title="Bônus de proficiência"
                               />
                               <input
                                 className="proficiency-value"
                                 type="text"
                                 value={formatMod(abilityMod(skillAbilityMap[entry.key]))}
                                 readOnly
-                                title="Bonus de atributo"
+                                title="Bônus de atributo"
                               />
                               <input
                                 className="proficiency-total"
@@ -1541,7 +2184,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                   <div className="player-form-section">
                     <h5>Combate e magias</h5>
                     <label className="field">
-                      <span>Ataques e conjuracao</span>
+                      <span>Ataques e conjuração</span>
                       <textarea
                         value={playerForm.attacks}
                         onChange={(event) => setPlayerForm({ ...playerForm, attacks: event.target.value })}
@@ -1566,7 +2209,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                       />
                     </label>
                     <label className="field">
-                      <span>Caracteristicas e talentos</span>
+                      <span>Características e talentos</span>
                       <textarea
                         value={playerForm.features}
                         onChange={(event) => setPlayerForm({ ...playerForm, features: event.target.value })}
@@ -1577,7 +2220,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                   <div className="player-form-section">
                     <h5>Personalidade</h5>
                     <label className="field">
-                      <span>Tracos de personalidade</span>
+                      <span>Traços de personalidade</span>
                       <textarea
                         value={playerForm.personalityTraits}
                         onChange={(event) => setPlayerForm({ ...playerForm, personalityTraits: event.target.value })}
@@ -1591,7 +2234,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                       />
                     </label>
                     <label className="field">
-                      <span>Vinculos</span>
+                      <span>Vínculos</span>
                       <textarea
                         value={playerForm.bonds}
                         onChange={(event) => setPlayerForm({ ...playerForm, bonds: event.target.value })}
@@ -1607,7 +2250,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                   </div>
 
                   <div className="player-form-section">
-                    <h5>Anotacoes gerais</h5>
+                    <h5>Anotações gerais</h5>
                     <label className="field">
                       <span>Notas</span>
                       <textarea
@@ -1770,7 +2413,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                   <div className="player-form-section">
                     <h5>Notas</h5>
                     <label className="field">
-                      <span>Observacoes</span>
+                      <span>Observações</span>
                       <textarea
                         value={questForm.notes}
                         readOnly={isQuestReadOnly}
@@ -1801,26 +2444,328 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           <DiceRoller />
         </article>
 
+        <article className="dashboard-card turns">
+          <header>
+            <h3>Monitoramento de turnos</h3>
+            <div className="turns-header-actions">
+              <button className="btn-secondary small" onClick={() => saveTurnMonitor(turnMonitor)}>
+                Salvar
+              </button>
+              {turnMonitorStatusLabel && (
+                <span className={`turns-status ${turnMonitorStatus}`}>
+                  {turnMonitorStatusLabel}
+                </span>
+              )}
+            </div>
+          </header>
+          <div className="turns-grid">
+            <div className="turns-column">
+              <div className="turns-section">
+                <h4>Marcando turnos</h4>
+                <div className="turns-periods">
+                  {TURN_PERIODS.map((period) => (
+                    <div key={period.id} className="turns-period">
+                      <span>{period.label}</span>
+                      <div className="turns-slot-row">
+                        {TURN_SLOTS.map((slot, index) => (
+                          <label key={slot} className="turns-slot">
+                            <input
+                              type="checkbox"
+                              checked={turnMonitor.periods[period.id][index]}
+                              onChange={(event) => updateTurnPeriod(period.id, index, event.target.checked)}
+                              aria-label={`${period.label} turno ${slot}`}
+                            />
+                            <span>{slot}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="turns-section">
+                <h4>Ordem de marcha</h4>
+                <textarea
+                  className="turns-textarea"
+                  placeholder="Anote a ordem do grupo"
+                  rows={6}
+                  value={turnMonitor.orderOfMarch}
+                  onChange={(event) =>
+                    setTurnMonitor((prev) => ({ ...prev, orderOfMarch: event.target.value }))
+                  }
+                />
+              </div>
+
+              <div className="turns-section">
+                <h4>Ordem de vigília</h4>
+                <textarea
+                  className="turns-textarea"
+                  placeholder="Anote as guardas da noite"
+                  rows={6}
+                  value={turnMonitor.orderOfWatch}
+                  onChange={(event) =>
+                    setTurnMonitor((prev) => ({ ...prev, orderOfWatch: event.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="turns-column">
+              <div className="turns-section">
+                <h4>Marcando turnos</h4>
+                <ol className="turns-list">
+                  <li>Marque a cada ação do grupo ou 10 min.</li>
+                  <li>Role encontros no turno indicado.</li>
+                  <li>Descreva o local.</li>
+                  <li>Verifique percepção se necessário.</li>
+                  <li>Resolva ações e marque deslocamento.</li>
+                </ol>
+              </div>
+
+              <div className="turns-section">
+                <h4>Rolagem de encontros</h4>
+                <ol className="turns-list">
+                  <li>Role 1d6. 1 = encontro.</li>
+                  <li>Se for encontro, role na tabela.</li>
+                  <li>Role a distância (1d6 x 3m).</li>
+                  <li>Teste a reação dos adversários.</li>
+                  <li>Se couber, determine surpresa.</li>
+                </ol>
+              </div>
+
+              <div className="turns-section">
+                <h4>Ações em masmorras</h4>
+                <div className="turns-actions">
+                  {DUNGEON_ACTIONS.map((action, index) => (
+                    <label key={action} className="turns-action">
+                      <input
+                        type="checkbox"
+                        checked={turnMonitor.actions[index]}
+                        onChange={(event) => updateTurnAction(index, event.target.checked)}
+                      />
+                      <span>{action}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="turns-section">
+                <h4>Tabela de reações (2d6)</h4>
+                <div className="turns-table reactions">
+                  <div className="turns-table-row turns-table-header">
+                    <span>2d6</span>
+                    <span>Reação</span>
+                  </div>
+                  {REACTION_TABLE.map((row) => (
+                    <div key={row.roll} className="turns-table-row">
+                      <span>{row.roll}</span>
+                      <span>{row.result}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="turns-section">
+                <h4>Tempo</h4>
+                <ul className="turns-meta">
+                  <li><strong>Rodada:</strong> 10 segundos</li>
+                  <li><strong>Turno:</strong> 10 minutos</li>
+                  <li><strong>Minuto:</strong> 6 rodadas</li>
+                  <li><strong>Hora:</strong> 6 turnos</li>
+                </ul>
+              </div>
+
+              <div className="turns-section">
+                <h4>Durações comuns</h4>
+                <ul className="turns-meta">
+                  <li><strong>Tocha (9m):</strong> 6 turnos (1 hora)</li>
+                  <li><strong>Lanterna (9m):</strong> 24 turnos (4 horas)</li>
+                  <li><strong>Vela (1m):</strong> 6 turnos (1 hora)</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="turns-column">
+              <div className="turns-section">
+                <h4>Tabela de encontros (1d10)</h4>
+                <div className="turns-encounter-controls">
+                  <label className="turns-select">
+                    <span>Ambiente</span>
+                    <select
+                      value={turnMonitor.encounterEnvironment}
+                      onChange={(event) =>
+                        setTurnMonitor((prev) => ({
+                          ...prev,
+                          encounterEnvironment: event.target.value as EncounterEnvironment
+                        }))
+                      }
+                    >
+                      {ENCOUNTER_ENVIRONMENTS.map((environment) => (
+                        <option key={environment.id} value={environment.id}>
+                          {environment.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="turns-select">
+                    <span>Dificuldade</span>
+                    <select
+                      value={turnMonitor.encounterDifficulty}
+                      onChange={(event) =>
+                        setTurnMonitor((prev) => ({
+                          ...prev,
+                          encounterDifficulty: event.target.value as EncounterDifficulty
+                        }))
+                      }
+                    >
+                      {ENCOUNTER_DIFFICULTIES.map((difficulty) => (
+                        <option key={difficulty.id} value={difficulty.id}>
+                          {difficulty.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button className="btn-secondary small" onClick={fillEncounterTable}>
+                    Preencher
+                  </button>
+                </div>
+                <div className="turns-table encounters">
+                  <div className="turns-table-row turns-table-header">
+                    <span>1d10</span>
+                    <span>Encontro</span>
+                  </div>
+                  {ENCOUNTER_ROLLS.map((roll, index) => (
+                    <div key={roll} className="turns-table-row">
+                      <span>{roll}</span>
+                      <input
+                        type="text"
+                        placeholder="Descreva o encontro"
+                        value={turnMonitor.encounterTable[index]}
+                        onChange={(event) => updateEncounterTable(index, event.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="turns-section">
+                <h4>Controle de PV</h4>
+                <div className="turns-table pv">
+                  <div className="turns-table-row turns-table-header">
+                    <span>Criatura</span>
+                    <span>PV máx</span>
+                    <span>PV atual</span>
+                  </div>
+                  {turnMonitor.pvRows.map((row, index) => (
+                    <div key={`pv-${index}`} className="turns-table-row">
+                      <input
+                        type="text"
+                        placeholder="Nome"
+                        value={row.name}
+                        onChange={(event) => updatePvRow(index, 'name', event.target.value)}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="0"
+                        value={row.max}
+                        onChange={(event) => updatePvRow(index, 'max', event.target.value)}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="0"
+                        value={row.current}
+                        onChange={(event) => updatePvRow(index, 'current', event.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="turns-section">
+                <h4>Tabela de monstros errantes</h4>
+                <div className="turns-table monsters">
+                  <div className="turns-table-row turns-table-header">
+                    <span>Grupo</span>
+                    <span>Área</span>
+                    <span>Notas</span>
+                  </div>
+                  {turnMonitor.monsterRows.map((row, index) => (
+                    <div key={`monster-${index}`} className="turns-table-row">
+                      <input
+                        type="text"
+                        placeholder="Grupo"
+                        value={row.group}
+                        onChange={(event) => updateMonsterRow(index, 'group', event.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Área"
+                        value={row.area}
+                        onChange={(event) => updateMonsterRow(index, 'area', event.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Notas"
+                        value={row.notes}
+                        onChange={(event) => updateMonsterRow(index, 'notes', event.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="turns-section">
+                <h4>Efeito e duração</h4>
+                <div className="turns-table effects">
+                  <div className="turns-table-row turns-table-header">
+                    <span>Efeito</span>
+                    <span>Duração</span>
+                  </div>
+                  {turnMonitor.effectRows.map((row, index) => (
+                    <div key={`effect-${index}`} className="turns-table-row">
+                      <input
+                        type="text"
+                        placeholder="Efeito"
+                        value={row.effect}
+                        onChange={(event) => updateEffectRow(index, 'effect', event.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Duração"
+                        value={row.duration}
+                        onChange={(event) => updateEffectRow(index, 'duration', event.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
         <article className="dashboard-card notes">
           <header>
-            <h3>Anotacoes do mestre</h3>
+            <h3>Anotações do mestre</h3>
           </header>
           <div className="note-box">
             {masterNote?.content ? (
               <pre className="master-note-preview">{masterNote.content}</pre>
             ) : (
-              <p className="text-muted">Nenhuma anotacao salva.</p>
+              <p className="text-muted">Nenhuma anotação salva.</p>
             )}
           </div>
           <button className="btn-secondary small" onClick={openMasterNote}>
-            {masterNote?.content ? 'Editar anotacoes' : 'Adicionar anotacoes'}
+            {masterNote?.content ? 'Editar anotações' : 'Adicionar anotações'}
           </button>
 
           {isMasterNoteOpen && (
             <div className="modal-overlay" onClick={() => setIsMasterNoteOpen(false)}>
               <div className="modal" onClick={(event) => event.stopPropagation()}>
                 <div className="modal-header">
-                  <h4>Anotacoes do mestre</h4>
+                  <h4>Anotações do mestre</h4>
                   <button className="modal-close" onClick={() => setIsMasterNoteOpen(false)}>
                     ✕
                   </button>
@@ -1851,7 +2796,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
 
         <article className="dashboard-card next">
           <header>
-            <h3>Proxima sessao</h3>
+            <h3>Próxima sessão</h3>
           </header>
           <div className="checklist">
             <label><input type="checkbox" /> Revisar encontros</label>

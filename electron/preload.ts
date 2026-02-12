@@ -190,6 +190,12 @@ const electronAPI = {
   masterNotes: {
     getByCampaign: (campaignId: string) => ipcRenderer.invoke('masterNotes:getByCampaign', campaignId),
     save: (data: { campaignId: string; content: string }) => ipcRenderer.invoke('masterNotes:save', data)
+  },
+
+  // === Monitoramento de turnos ===
+  turnMonitor: {
+    getByCampaign: (campaignId: string) => ipcRenderer.invoke('turnMonitor:getByCampaign', campaignId),
+    save: (data: { campaignId: string; content: string }) => ipcRenderer.invoke('turnMonitor:save', data)
   }
 }
 

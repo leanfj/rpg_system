@@ -120,6 +120,237 @@
   grid-column: span 3;
 }
 
+.turns {
+  grid-column: span 12;
+}
+
+.turns header {
+  align-items: center;
+}
+
+.turns-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.turns-status {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.turns-status.saved {
+  color: rgba(74, 222, 128, 0.8);
+}
+
+.turns-status.error {
+  color: var(--error);
+}
+
+.turns-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.turns-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.turns-section h4 {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.turns-periods {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.turns-period {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  border: 1px dashed var(--border-light);
+  border-radius: var(--radius-md);
+  background: rgba(12, 15, 30, 0.35);
+}
+
+.turns-slot-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--spacing-xs);
+}
+
+.turns-slot {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.turns-slot input {
+  width: 18px;
+  height: 18px;
+}
+
+.turns-textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  background: rgba(10, 14, 30, 0.6);
+  color: var(--text-primary);
+  padding: var(--spacing-sm);
+}
+
+.turns-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.turns-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-xs);
+}
+
+.turns-encounter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--spacing-sm);
+}
+
+.turns-select {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.turns-select select {
+  min-width: 160px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: rgba(10, 14, 30, 0.6);
+  color: var(--text-primary);
+  padding: 6px 8px;
+  font-size: 0.85rem;
+}
+
+.turns-meta {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.turns-meta strong {
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.turns-action {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.turns-table {
+  display: grid;
+  gap: 6px;
+}
+
+.turns-table-row {
+  display: grid;
+  gap: 6px;
+  align-items: center;
+}
+
+.turns-table-row input {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: rgba(10, 14, 30, 0.6);
+  color: var(--text-primary);
+  padding: 6px 8px;
+  font-size: 0.85rem;
+}
+
+.turns-table-header {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+}
+
+.turns-table-row span {
+  color: var(--text-primary);
+}
+
+.turns-table.reactions .turns-table-row,
+.turns-table.encounters .turns-table-row,
+.turns-table.effects .turns-table-row {
+  grid-template-columns: 80px 1fr;
+}
+
+.turns-table.pv .turns-table-row {
+  grid-template-columns: 1.2fr 0.6fr 0.6fr;
+}
+
+.turns-table.monsters .turns-table-row {
+  grid-template-columns: 1fr 0.8fr 1fr;
+}
+
+.turns-table-row.turns-table-header {
+  font-weight: 600;
+}
+
+.turns-table-row input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.turns-table-row input[type="number"] {
+  appearance: textfield;
+}
+
+.turns-table-row input[type="number"]::-webkit-outer-spin-button,
+.turns-table-row input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+@media (max-width: 1200px) {
+  .turns-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .dice-roller {
   display: flex;
   flex-direction: column;

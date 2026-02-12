@@ -103,6 +103,14 @@ interface MasterNote {
   updatedAt: Date
 }
 
+interface TurnMonitor {
+  id: string
+  campaignId: string
+  content: string
+  createdAt: Date
+  updatedAt: Date
+}
+
 interface ElectronAPI {
   platform: NodeJS.Platform
   
@@ -158,6 +166,11 @@ interface ElectronAPI {
   masterNotes: {
     getByCampaign: (campaignId: string) => Promise<MasterNote | null>
     save: (data: { campaignId: string; content: string }) => Promise<MasterNote>
+  }
+
+  turnMonitor: {
+    getByCampaign: (campaignId: string) => Promise<TurnMonitor | null>
+    save: (data: { campaignId: string; content: string }) => Promise<TurnMonitor>
   }
 }
 

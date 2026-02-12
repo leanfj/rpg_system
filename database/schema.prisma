@@ -26,9 +26,24 @@ model Campaign {
   npcs      Npc[]
   quests    Quest[]
   masterNotes MasterNote[]
+  turnMonitor TurnMonitor?
   playerCharacters PlayerCharacter[]
   
   @@map("campaigns")
+}
+
+/// Monitoramento de turnos por campanha
+model TurnMonitor {
+  id         String   @id @default(cuid())
+  campaignId String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId])
+  @@map("turn_monitors")
 }
 
 /// Anotacoes do mestre por campanha

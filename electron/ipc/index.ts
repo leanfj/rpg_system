@@ -174,6 +174,24 @@ ipcMain.handle('masterNotes:save', async (_event, data: {
   })
 })
 
+// === Monitoramento de turnos ===
+ipcMain.handle('turnMonitor:getByCampaign', async (_event, campaignId: string) => {
+  return await db.turnMonitor.findUnique({
+    where: { campaignId }
+  })
+})
+
+ipcMain.handle('turnMonitor:save', async (_event, data: {
+  campaignId: string
+  content: string
+}) => {
+  return await db.turnMonitor.upsert({
+    where: { campaignId: data.campaignId },
+    create: { campaignId: data.campaignId, content: data.content },
+    update: { content: data.content }
+  })
+})
+
 ipcMain.handle('players:create', async (_event, data: {
   campaignId: string
   name: string
