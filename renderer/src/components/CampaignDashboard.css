@@ -231,9 +231,46 @@
 
 .turns-encounter-controls {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
+  flex-direction: column;
   gap: var(--spacing-sm);
+}
+
+.turns-encounter-selects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  align-items: flex-end;
+}
+
+.turns-encounter-buttons {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: nowrap;
+  margin-bottom: var(--spacing-md)  ;
+}
+
+.turns-encounter-controls .btn-secondary.small {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(14, 116, 144, 0.35));
+  color: var(--text-primary);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.turns-encounter-controls .btn-secondary.small:hover {
+  border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 10px 20px rgba(14, 116, 144, 0.35);
+  transform: translateY(-1px);
+}
+
+.turns-encounter-controls .btn-secondary.small:active {
+  transform: translateY(0);
+  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.35);
 }
 
 .turns-select {
@@ -302,6 +339,7 @@
   font-size: 0.85rem;
 }
 
+
 .turns-table-header {
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -314,9 +352,12 @@
 }
 
 .turns-table.reactions .turns-table-row,
-.turns-table.encounters .turns-table-row,
-.turns-table.effects .turns-table-row {
+.turns-table.encounters .turns-table-row {
   grid-template-columns: 80px 1fr;
+}
+
+.turns-table.effects .turns-table-row {
+  grid-template-columns: 1.4fr 0.8fr;
 }
 
 .turns-table.pv .turns-table-row {

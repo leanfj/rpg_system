@@ -121,6 +121,7 @@ type TurnMonitorData = {
   orderOfWatch: string
   actions: boolean[]
   encounterTable: string[]
+  encounterTable20: string[]
   encounterEnvironment: EncounterEnvironment
   encounterDifficulty: EncounterDifficulty
   pvRows: TurnMonitorPVRow[]
@@ -166,6 +167,7 @@ const DUNGEON_ACTIONS = [
 ]
 
 const ENCOUNTER_ROLLS = ['1-2', '3', '4', '5', '6', '7', '8', '9', '10']
+const ENCOUNTER_ROLLS_20 = Array.from({ length: 20 }, (_, index) => `${index + 1}`)
 
 const REACTION_TABLE = [
   { roll: '2-3', result: 'Ataca na hora' },
@@ -545,6 +547,163 @@ const ENCOUNTER_TABLES: Record<EncounterEnvironment, Record<EncounterDifficulty,
   }
 }
 
+const ENCOUNTER_TABLES_20: Record<EncounterEnvironment, string[]> = {
+  floresta: [
+    'Mercador itinerante perdido',
+    'Animal ferido na trilha',
+    'Pegadas recentes e fogueira apagada',
+    'Tempestade repentina no bosque',
+    'Acampamento abandonado',
+    'Armadilha de caçador',
+    'Batedores aliados pedindo ajuda',
+    'Viajantes assustados com algo ao norte',
+    'Ruínas cobertas por musgo',
+    'Encontro hostil (role na tabela 1d10 - {difficulty})',
+    'Caravana bloqueada por árvore caída',
+    'Animal místico observa o grupo',
+    'Trovão distante, algo se aproxima',
+    'Totem antigo com avisos',
+    'Bando de corvos inquietos',
+    'Encontro curioso (role na tabela 1d10 - {difficulty})',
+    'Caminho alternativo perigoso',
+    'Caçadores discutindo recompensa',
+    'Vestígios de combate recente',
+    'Encontro perigoso (role na tabela 1d10 - {difficulty})'
+  ],
+  deserto: [
+    'Mercador com sede pede água',
+    'Animal perdido no calor',
+    'Oásis distante (real ou miragem)',
+    'Tempestade de areia se aproxima',
+    'Carcaça gigante na areia',
+    'Pegadas frescas cruzam a trilha',
+    'Caravana protegida por mercenários',
+    'Ruínas soterradas emergindo',
+    'Viajantes exaustos pedem abrigo',
+    'Encontro hostil (role na tabela 1d10 - {difficulty})',
+    'Bandidos negociam passagem',
+    'Totem antigo com aviso de perigo',
+    'Animal assustado foge para o norte',
+    'Sopro gelado vindo de caverna',
+    'Relâmpago seco no horizonte',
+    'Encontro curioso (role na tabela 1d10 - {difficulty})',
+    'Dunas desmoronam revelando túnel',
+    'Mercador oferece mapa suspeito',
+    'Eco de tambores distantes',
+    'Encontro perigoso (role na tabela 1d10 - {difficulty})'
+  ],
+  montanha: [
+    'Mercador bloqueado por deslizamento',
+    'Animal preso em fenda',
+    'Eco estranho vindo de caverna',
+    'Avalanche distante',
+    'Acampamento destruído pelo frio',
+    'Trilha segura marcada com pedras',
+    'Escoteiros aliados pedem ajuda',
+    'Viajantes buscando abrigo',
+    'Ruína em penhasco',
+    'Encontro hostil (role na tabela 1d10 - {difficulty})',
+    'Bando de cabras monteses cruza o caminho',
+    'Névoa densa cobre o vale',
+    'Sinais de dragão recente',
+    'Ponte improvisada instável',
+    'Luzes misteriosas na crista',
+    'Encontro curioso (role na tabela 1d10 - {difficulty})',
+    'Caminho bloqueado por rochas',
+    'Santuário de montanha',
+    'Vestígios de batalha antiga',
+    'Encontro perigoso (role na tabela 1d10 - {difficulty})'
+  ],
+  pantano: [
+    'Mercador perdido em lamaçal',
+    'Animal assustado preso na lama',
+    'Neblina densa reduz visibilidade',
+    'Ruído estranho na água',
+    'Ponte de troncos apodrecidos',
+    'Totem com avisos de perigo',
+    'Viajantes adoentados pedem ajuda',
+    'Sussurros na névoa',
+    'Ruínas submersas',
+    'Encontro hostil (role na tabela 1d10 - {difficulty})',
+    'Ervas raras surgem no caminho',
+    'Sinais de criatura grande',
+    'Tempestade se aproxima',
+    'Luzes estranhas sobre a água',
+    'Bando de aves inquietas',
+    'Encontro curioso (role na tabela 1d10 - {difficulty})',
+    'Caminho alternativo perigoso',
+    'Caçadores de pântano pedem ajuda',
+    'Vestígios de ritual',
+    'Encontro perigoso (role na tabela 1d10 - {difficulty})'
+  ],
+  urbano: [
+    'Mercador oferece itens raros',
+    'Animal perdido causa confusão',
+    'Bando de crianças pede ajuda',
+    'Guarda faz inspeção',
+    'Rumor de crime recente',
+    'Cartaz de recompensa chamativo',
+    'Viajante perdido procura abrigo',
+    'Procissão religiosa bloqueia a rua',
+    'Pequena briga em taverna',
+    'Encontro hostil (role na tabela 1d10 - {difficulty})',
+    'Mercador quer escolta',
+    'Artista de rua chama atenção',
+    'Alguém segue o grupo',
+    'Guarda pede suborno',
+    'Incêndio em um prédio próximo',
+    'Encontro curioso (role na tabela 1d10 - {difficulty})',
+    'Investigador busca testemunhas',
+    'Mensageiro traz notícia urgente',
+    'Sinos anunciam perigo',
+    'Encontro perigoso (role na tabela 1d10 - {difficulty})'
+  ],
+  masmorra: [
+    'Mercador perdido em corredor',
+    'Animal assustado em jaula',
+    'Sussurros atrás da parede',
+    'Armadilha recém-ativada',
+    'Sala abandonada com suprimentos',
+    'Ruído de engrenagens',
+    'Viajantes presos pedem ajuda',
+    'Rastro de sangue recente',
+    'Grafites alertam perigo',
+    'Encontro hostil (role na tabela 1d10 - {difficulty})',
+    'Corrente de ar gelado',
+    'Luz estranha ao longe',
+    'Sinais de culto recente',
+    'Porta secreta entreaberta',
+    'Borras de poção no chão',
+    'Encontro curioso (role na tabela 1d10 - {difficulty})',
+    'Ecos de combate distante',
+    'Rato gigante carrega chave',
+    'Câmara ritual intacta',
+    'Encontro perigoso (role na tabela 1d10 - {difficulty})'
+  ],
+  costeiro: [
+    'Mercador espera por maré',
+    'Animal marinho perdido na praia',
+    'Naufrágio recente',
+    'Bruma densa sobre o mar',
+    'Pescadores pedem ajuda',
+    'Sinais de piratas',
+    'Viajantes aguardam balsa',
+    'Farol apagado',
+    'Ruínas costeiras',
+    'Encontro hostil (role na tabela 1d10 - {difficulty})',
+    'Barqueiro oferece passagem',
+    'Navio desconhecido no horizonte',
+    'Bando de gaivotas agitadas',
+    'Tempestade se aproxima',
+    'Sinais de criatura marinha',
+    'Encontro curioso (role na tabela 1d10 - {difficulty})',
+    'Mercador pede escolta',
+    'Guardas costeiros patrulham',
+    'Tesouro encalhado',
+    'Encontro perigoso (role na tabela 1d10 - {difficulty})'
+  ]
+}
+
 const isEncounterEnvironment = (value: string): value is EncounterEnvironment =>
   ENCOUNTER_ENVIRONMENTS.some((env) => env.id === value)
 
@@ -562,6 +721,9 @@ const createDefaultTurnMonitorData = (): TurnMonitorData => ({
   orderOfWatch: '',
   actions: Array(DUNGEON_ACTIONS.length).fill(false),
   encounterTable: Array(ENCOUNTER_ROLLS.length).fill(''),
+  encounterTable20: Array.from({ length: ENCOUNTER_ROLLS_20.length }, (_, index) =>
+    ENCOUNTER_TABLES_20.floresta[index] ?? ''
+  ),
   encounterEnvironment: 'floresta',
   encounterDifficulty: 'medium',
   pvRows: Array.from({ length: PV_ROW_COUNT }, () => ({ name: '', max: '', current: '' })),
@@ -595,6 +757,7 @@ const normalizeTurnMonitorData = (value?: Partial<TurnMonitorData> | null): Turn
     periods,
     actions: normalizeArray(value.actions, DUNGEON_ACTIONS.length, false),
     encounterTable: normalizeArray(value.encounterTable, ENCOUNTER_ROLLS.length, ''),
+    encounterTable20: normalizeArray(value.encounterTable20, ENCOUNTER_ROLLS_20.length, ''),
     encounterEnvironment: normalizedEnvironment,
     encounterDifficulty: normalizedDifficulty,
     pvRows: Array.from({ length: PV_ROW_COUNT }, (_, index) => ({
@@ -1445,6 +1608,15 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     }))
   }
 
+  const updateEncounterTable20 = (index: number, value: string) => {
+    setTurnMonitor((prev) => ({
+      ...prev,
+      encounterTable20: prev.encounterTable20.map((entry, entryIndex) =>
+        entryIndex === index ? value : entry
+      )
+    }))
+  }
+
   const fillEncounterTable = () => {
     setTurnMonitor((prev) => {
       const environment = prev.encounterEnvironment
@@ -1458,6 +1630,25 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
         table[index] ?? ''
       )
       return { ...prev, encounterTable: normalizedTable }
+    })
+  }
+
+  const getDifficultyLabel = (difficulty: EncounterDifficulty) => {
+    return ENCOUNTER_DIFFICULTIES.find((item) => item.id === difficulty)?.label || 'Médio'
+  }
+
+  const fillEncounterTable20 = () => {
+    setTurnMonitor((prev) => {
+      const environment = prev.encounterEnvironment
+      const difficulty = prev.encounterDifficulty
+      const template = ENCOUNTER_TABLES_20[environment] || ENCOUNTER_TABLES_20.floresta
+      const difficultyLabel = getDifficultyLabel(difficulty)
+      const normalizedTable = Array.from({ length: ENCOUNTER_ROLLS_20.length }, (_, index) =>
+        (template[index] || '')
+          .replace('{difficulty}', difficultyLabel)
+          .replace('{environment}', environment)
+      )
+      return { ...prev, encounterTable20: normalizedTable }
     })
   }
 
@@ -2485,6 +2676,32 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
               </div>
 
               <div className="turns-section">
+                <h4>Efeito e duração</h4>
+                <div className="turns-table effects">
+                  <div className="turns-table-row turns-table-header">
+                    <span>Efeito</span>
+                    <span>Duração</span>
+                  </div>
+                  {turnMonitor.effectRows.map((row, index) => (
+                    <div key={`effect-${index}`} className="turns-table-row">
+                      <input
+                        type="text"
+                        placeholder="Efeito"
+                        value={row.effect}
+                        onChange={(event) => updateEffectRow(index, 'effect', event.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Duração"
+                        value={row.duration}
+                        onChange={(event) => updateEffectRow(index, 'duration', event.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="turns-section">
                 <h4>Ordem de marcha</h4>
                 <textarea
                   className="turns-textarea"
@@ -2508,6 +2725,72 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                     setTurnMonitor((prev) => ({ ...prev, orderOfWatch: event.target.value }))
                   }
                 />
+              </div>
+              <div className="turns-section">
+                <h4>Controle de PV</h4>
+                <div className="turns-table pv">
+                  <div className="turns-table-row turns-table-header">
+                    <span>Criatura</span>
+                    <span>PV máx</span>
+                    <span>PV atual</span>
+                  </div>
+                  {turnMonitor.pvRows.map((row, index) => (
+                    <div key={`pv-${index}`} className="turns-table-row">
+                      <input
+                        type="text"
+                        placeholder="Nome"
+                        value={row.name}
+                        onChange={(event) => updatePvRow(index, 'name', event.target.value)}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="0"
+                        value={row.max}
+                        onChange={(event) => updatePvRow(index, 'max', event.target.value)}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="0"
+                        value={row.current}
+                        onChange={(event) => updatePvRow(index, 'current', event.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="turns-section">
+                <h4>Tabela de monstros errantes</h4>
+                <div className="turns-table monsters">
+                  <div className="turns-table-row turns-table-header">
+                    <span>Grupo</span>
+                    <span>Área</span>
+                    <span>Notas</span>
+                  </div>
+                  {turnMonitor.monsterRows.map((row, index) => (
+                    <div key={`monster-${index}`} className="turns-table-row">
+                      <input
+                        type="text"
+                        placeholder="Grupo"
+                        value={row.group}
+                        onChange={(event) => updateMonsterRow(index, 'group', event.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Área"
+                        value={row.area}
+                        onChange={(event) => updateMonsterRow(index, 'area', event.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Notas"
+                        value={row.notes}
+                        onChange={(event) => updateMonsterRow(index, 'notes', event.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -2584,51 +2867,62 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                   <li><strong>Vela (1m):</strong> 6 turnos (1 hora)</li>
                 </ul>
               </div>
+
+              
+
+              
             </div>
 
             <div className="turns-column">
               <div className="turns-section">
                 <h4>Tabela de encontros (1d10)</h4>
                 <div className="turns-encounter-controls">
-                  <label className="turns-select">
-                    <span>Ambiente</span>
-                    <select
-                      value={turnMonitor.encounterEnvironment}
-                      onChange={(event) =>
-                        setTurnMonitor((prev) => ({
-                          ...prev,
-                          encounterEnvironment: event.target.value as EncounterEnvironment
-                        }))
-                      }
-                    >
-                      {ENCOUNTER_ENVIRONMENTS.map((environment) => (
-                        <option key={environment.id} value={environment.id}>
-                          {environment.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="turns-select">
-                    <span>Dificuldade</span>
-                    <select
-                      value={turnMonitor.encounterDifficulty}
-                      onChange={(event) =>
-                        setTurnMonitor((prev) => ({
-                          ...prev,
-                          encounterDifficulty: event.target.value as EncounterDifficulty
-                        }))
-                      }
-                    >
-                      {ENCOUNTER_DIFFICULTIES.map((difficulty) => (
-                        <option key={difficulty.id} value={difficulty.id}>
-                          {difficulty.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button className="btn-secondary small" onClick={fillEncounterTable}>
-                    Preencher
-                  </button>
+                  <div className="turns-encounter-selects">
+                    <label className="turns-select">
+                      <span>Ambiente</span>
+                      <select
+                        value={turnMonitor.encounterEnvironment}
+                        onChange={(event) =>
+                          setTurnMonitor((prev) => ({
+                            ...prev,
+                            encounterEnvironment: event.target.value as EncounterEnvironment
+                          }))
+                        }
+                      >
+                        {ENCOUNTER_ENVIRONMENTS.map((environment) => (
+                          <option key={environment.id} value={environment.id}>
+                            {environment.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="turns-select">
+                      <span>Dificuldade</span>
+                      <select
+                        value={turnMonitor.encounterDifficulty}
+                        onChange={(event) =>
+                          setTurnMonitor((prev) => ({
+                            ...prev,
+                            encounterDifficulty: event.target.value as EncounterDifficulty
+                          }))
+                        }
+                      >
+                        {ENCOUNTER_DIFFICULTIES.map((difficulty) => (
+                          <option key={difficulty.id} value={difficulty.id}>
+                            {difficulty.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="turns-encounter-buttons">
+                    <button className="btn-secondary small" onClick={fillEncounterTable}>
+                      Preencher 1d10
+                    </button>
+                    <button className="btn-secondary small" onClick={fillEncounterTable20}>
+                      Preencher 1d20
+                    </button>
+                  </div>
                 </div>
                 <div className="turns-table encounters">
                   <div className="turns-table-row turns-table-header">
@@ -2650,98 +2944,27 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
               </div>
 
               <div className="turns-section">
-                <h4>Controle de PV</h4>
-                <div className="turns-table pv">
+                <h4>Tabela de encontros aleatórios (1d20)</h4>
+                <div className="turns-table encounters">
                   <div className="turns-table-row turns-table-header">
-                    <span>Criatura</span>
-                    <span>PV máx</span>
-                    <span>PV atual</span>
+                    <span>1d20</span>
+                    <span>Evento</span>
                   </div>
-                  {turnMonitor.pvRows.map((row, index) => (
-                    <div key={`pv-${index}`} className="turns-table-row">
+                  {ENCOUNTER_ROLLS_20.map((roll, index) => (
+                    <div key={roll} className="turns-table-row">
+                      <span>{roll}</span>
                       <input
                         type="text"
-                        placeholder="Nome"
-                        value={row.name}
-                        onChange={(event) => updatePvRow(index, 'name', event.target.value)}
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        placeholder="0"
-                        value={row.max}
-                        onChange={(event) => updatePvRow(index, 'max', event.target.value)}
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        placeholder="0"
-                        value={row.current}
-                        onChange={(event) => updatePvRow(index, 'current', event.target.value)}
+                        placeholder="Descreva o evento"
+                        value={turnMonitor.encounterTable20[index]}
+                        onChange={(event) => updateEncounterTable20(index, event.target.value)}
                       />
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="turns-section">
-                <h4>Tabela de monstros errantes</h4>
-                <div className="turns-table monsters">
-                  <div className="turns-table-row turns-table-header">
-                    <span>Grupo</span>
-                    <span>Área</span>
-                    <span>Notas</span>
-                  </div>
-                  {turnMonitor.monsterRows.map((row, index) => (
-                    <div key={`monster-${index}`} className="turns-table-row">
-                      <input
-                        type="text"
-                        placeholder="Grupo"
-                        value={row.group}
-                        onChange={(event) => updateMonsterRow(index, 'group', event.target.value)}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Área"
-                        value={row.area}
-                        onChange={(event) => updateMonsterRow(index, 'area', event.target.value)}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Notas"
-                        value={row.notes}
-                        onChange={(event) => updateMonsterRow(index, 'notes', event.target.value)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="turns-section">
-                <h4>Efeito e duração</h4>
-                <div className="turns-table effects">
-                  <div className="turns-table-row turns-table-header">
-                    <span>Efeito</span>
-                    <span>Duração</span>
-                  </div>
-                  {turnMonitor.effectRows.map((row, index) => (
-                    <div key={`effect-${index}`} className="turns-table-row">
-                      <input
-                        type="text"
-                        placeholder="Efeito"
-                        value={row.effect}
-                        onChange={(event) => updateEffectRow(index, 'effect', event.target.value)}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Duração"
-                        value={row.duration}
-                        onChange={(event) => updateEffectRow(index, 'duration', event.target.value)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
+              
             </div>
           </div>
         </article>
