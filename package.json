@@ -22,6 +22,7 @@
     "postinstall": "prisma generate --schema=database/schema.prisma"
   },
   "dependencies": {
+    "@3d-dice/dice-box-threejs": "^0.0.12",
     "@prisma/client": "^5.10.0",
     "cannon-es": "^0.20.0",
     "electron-store": "^8.1.0",
