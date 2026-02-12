@@ -27,6 +27,10 @@ function App() {
     }
   }
 
+  const shouldRenderSessionView = Boolean(activeCampaignId) && (
+    currentView === 'session' || activeSessionId !== null
+  )
+
   return (
     <div className="app">
       <Sidebar 
@@ -48,13 +52,15 @@ function App() {
           />
         )}
         
-        {currentView === 'session' && activeCampaignId && (
-          <SessionView 
-            campaignId={activeCampaignId}
-            sessionId={activeSessionId}
-            onSessionStart={setActiveSessionId}
-            onSessionEnd={handleSessionEnd}
-          />
+        {shouldRenderSessionView && activeCampaignId && (
+          <div className={`view-panel ${currentView === 'session' ? '' : 'is-hidden'}`}>
+            <SessionView 
+              campaignId={activeCampaignId}
+              sessionId={activeSessionId}
+              onSessionStart={setActiveSessionId}
+              onSessionEnd={handleSessionEnd}
+            />
+          </div>
         )}
 
         {currentView === 'recordings' && (

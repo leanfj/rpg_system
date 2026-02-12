@@ -12,3 +12,7 @@
   overflow: hidden;
   background: var(--bg-primary);
 }
+
+.view-panel.is-hidden {
+  display: none;
+}
