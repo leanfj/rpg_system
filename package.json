@@ -22,14 +22,17 @@
     "postinstall": "prisma generate --schema=database/schema.prisma"
   },
   "dependencies": {
-    "electron-store": "^8.1.0",
     "@prisma/client": "^5.10.0",
+    "cannon-es": "^0.20.0",
+    "electron-store": "^8.1.0",
+    "three": "^0.161.0",
     "ws": "^8.16.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
+    "@types/three": "^0.182.0",
     "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^6.19.0",
     "@typescript-eslint/parser": "^6.19.0",

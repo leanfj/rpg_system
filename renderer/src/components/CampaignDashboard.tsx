@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import DiceRoller from './DiceRoller'
 import './CampaignDashboard.css'
 
 interface Campaign {
@@ -1793,6 +1794,14 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
               </div>
             </div>
           )}
+        </article>
+
+        <article className="dashboard-card dice">
+          <header>
+            <h3>Rolador de dados</h3>
+            <span className="text-muted">Fisica 3D custom</span>
+          </header>
+          <DiceRoller />
         </article>
 
         <article className="dashboard-card notes">

@@ -108,12 +108,50 @@
   grid-column: span 5;
 }
 
+.dice {
+  grid-column: span 4;
+}
+
 .notes {
   grid-column: span 4;
 }
 
 .next {
   grid-column: span 3;
+}
+
+.dice-roller {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.dice-viewport {
+  width: 100%;
+  height: 260px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  background: radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 60%),
+    rgba(10, 14, 30, 0.6);
+  overflow: hidden;
+}
+
+.dice-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.dice-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.dice-result {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
 }
 
 .timeline-list {
@@ -748,6 +786,7 @@
   .npcs,
   .players,
   .quests,
+  .dice,
   .notes,
   .next {
     grid-column: span 12;
