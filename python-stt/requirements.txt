@@ -1,0 +1,15 @@
+# Whisper para Speech-to-Text
+openai-whisper>=20231117
+
+# Web framework com WebSocket
+fastapi>=0.109.0
+python-multipart>=0.0.7
+uvicorn>=0.27.0
+websockets>=12.0
+
+# Processamento de áudio
+numpy>=1.26.0
+soundfile>=0.12.1
+
+# Utilitários
+python-dotenv>=1.0.0

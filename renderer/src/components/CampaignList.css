@@ -1,0 +1,133 @@
+.campaign-list {
+  padding: var(--spacing-xl);
+  overflow-y: auto;
+  height: 100%;
+}
+
+.campaign-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xl);
+}
+
+.campaign-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  transition: background var(--transition-fast);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.btn-secondary:hover {
+  background: var(--border-light);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--error);
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.btn-danger:hover {
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.create-campaign-form {
+  background: var(--bg-secondary);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-xl);
+  border: 1px solid var(--border);
+}
+
+.create-campaign-form input {
+  width: 100%;
+  margin-bottom: var(--spacing-md);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+}
+
+.campaigns-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.campaign-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  transition: border-color var(--transition-fast);
+}
+
+.campaign-card:hover {
+  border-color: var(--border-light);
+}
+
+.campaign-info h3 {
+  font-size: 1.1rem;
+  margin-bottom: var(--spacing-xs);
+}
+
+.campaign-date {
+  font-size: 0.85rem;
+}
+
+.campaign-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: auto;
+}
+
+.campaign-actions .btn-primary {
+  flex: 1;
+}
+
+.empty-state {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl) * 2;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: var(--spacing-lg);
+  opacity: 0.5;
+}
+
+.empty-state p {
+  margin-bottom: var(--spacing-xs);
+}

@@ -1,0 +1,188 @@
+// Prisma Schema para RPG Session Support
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./rpg_sessions.db"
+}
+
+// ==========================================
+// MODELOS
+// ==========================================
+
+/// Campanha de RPG (ex: "A Maldição de Strahd", "Homebrew Medieval")
+model Campaign {
+  id        String    @id @default(cuid())
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  // Relacionamentos
+  sessions  Session[]
+  npcs      Npc[]
+  quests    Quest[]
+  masterNotes MasterNote[]
+  playerCharacters PlayerCharacter[]
+  
+  @@map("campaigns")
+}
+
+/// Anotacoes do mestre por campanha
+model MasterNote {
+  id         String   @id @default(cuid())
+  campaignId String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId])
+  @@map("master_notes")
+}
+
+/// Quest/objetivo de uma campanha
+model Quest {
+  id         String   @id @default(cuid())
+  campaignId String
+  title      String
+  status     String
+  objective String?
+  reward    String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("quests")
+}
+
+/// Sessão de jogo - uma "partida" dentro de uma campanha
+model Session {
+  id         String    @id @default(cuid())
+  campaignId String
+  startedAt  DateTime  @default(now())
+  endedAt    DateTime?
+  
+  // Metadados
+  title      String?   // Título opcional (ex: "Sessão 15 - A Torre do Mago")
+  notes      String?   // Anotações manuais do mestre
+  
+  // Relacionamentos
+  campaign    Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  transcripts TranscriptChunk[]
+  events      Event[]
+  
+  @@map("sessions")
+}
+
+/// Pedaço de transcrição (texto reconhecido pelo Whisper)
+model TranscriptChunk {
+  id         String   @id @default(cuid())
+  sessionId  String
+  text       String
+  timestamp  Int      // Milissegundos desde o início da sessão
+  confidence Float?   // Confiança do reconhecimento (0-1)
+  createdAt  DateTime @default(now())
+  
+  // Relacionamentos
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@index([sessionId])
+  @@index([timestamp])
+  @@map("transcript_chunks")
+}
+
+/// Evento detectado durante a sessão (combate, rolagem crítica, etc)
+model Event {
+  id        String   @id @default(cuid())
+  sessionId String
+  type      String   // Tipo do evento: "combat_start", "critical_hit", "npc_mention", etc
+  payload   String   // JSON com dados específicos do evento
+  timestamp Int      // Milissegundos desde o início da sessão
+  createdAt DateTime @default(now())
+  
+  // Relacionamentos
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@index([sessionId])
+  @@index([type])
+  @@map("events")
+}
+
+/// NPC (Personagem Não-Jogador) de uma campanha
+model Npc {
+  id          String   @id @default(cuid())
+  campaignId  String
+  name        String
+  race        String?
+  occupation  String?
+  location    String?
+  tags        String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  @@index([campaignId])
+  @@map("npcs")
+}
+
+/// Personagem jogador (D&D 5e 2024)
+model PlayerCharacter {
+  id         String   @id @default(cuid())
+  campaignId String
+  name       String
+  playerName String?
+  className  String
+  subclass   String?
+  level      Int
+  ancestry   String
+  background String?
+  alignment  String?
+  experience Int?
+  inspiration Boolean?
+  proficiencyBonus Int?
+  armorClass Int
+  initiative Int?
+  speed      Int?
+  hitPoints  Int
+  currentHitPoints Int?
+  tempHitPoints Int?
+  hitDice    String?
+  deathSaves String?
+  passivePerception Int?
+  strength   Int
+  dexterity  Int
+  constitution Int
+  intelligence Int
+  wisdom     Int
+  charisma   Int
+  savingThrows String?
+  proficiencies String?
+  skills     String?
+  attacks    String?
+  spells     String?
+  equipment  String?
+  features   String?
+  personalityTraits String?
+  ideals     String?
+  bonds      String?
+  flaws      String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("player_characters")
+}

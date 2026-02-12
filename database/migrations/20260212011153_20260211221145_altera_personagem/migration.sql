@@ -1,0 +1,22 @@
+-- AlterTable
+ALTER TABLE "player_characters" ADD COLUMN "attacks" TEXT;
+ALTER TABLE "player_characters" ADD COLUMN "background" TEXT;
+ALTER TABLE "player_characters" ADD COLUMN "bonds" TEXT;
+ALTER TABLE "player_characters" ADD COLUMN "currentHitPoints" INTEGER;
+ALTER TABLE "player_characters" ADD COLUMN "deathSaves" TEXT;
+ALTER TABLE "player_characters" ADD COLUMN "experience" INTEGER;
+ALTER TABLE "player_characters" ADD COLUMN "features" TEXT;
+ALTER TABLE "player_characters" ADD COLUMN "flaws" TEXT;
+ALTER TABLE "player_characters" ADD COLUMN "hitDice" TEXT;
+ALTER TABLE "player_characters" ADD COLUMN "ideals" TEXT;
+ALTER TABLE "player_characters" ADD COLUMN "initiative" INTEGER;
+ALTER TABLE "player_characters" ADD COLUMN "inspiration" BOOLEAN;
+ALTER TABLE "player_characters" ADD COLUMN "passivePerception" INTEGER;
+ALTER TABLE "player_characters" ADD COLUMN "personalityTraits" TEXT;
+ALTER TABLE "player_characters" ADD COLUMN "playerName" TEXT;
+ALTER TABLE "player_characters" ADD COLUMN "proficiencyBonus" INTEGER;
+ALTER TABLE "player_characters" ADD COLUMN "savingThrows" TEXT;
+ALTER TABLE "player_characters" ADD COLUMN "speed" INTEGER;
+ALTER TABLE "player_characters" ADD COLUMN "spells" TEXT;
+ALTER TABLE "player_characters" ADD COLUMN "subclass" TEXT;
+ALTER TABLE "player_characters" ADD COLUMN "tempHitPoints" INTEGER;

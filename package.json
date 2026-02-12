@@ -1,0 +1,47 @@
+{
+  "name": "rpg-session-support",
+  "version": "0.1.0",
+  "description": "Sistema de suporte para mesas de RPG com transcrição de áudio em tempo real",
+  "main": "electron/dist/main.js",
+  "author": "Leandro",
+  "license": "MIT",
+  "scripts": {
+    "dev": "npm run dev:all",
+    "dev:all": "concurrently -n renderer,electron -c cyan,magenta \"npm run dev:renderer\" \"npm run dev:electron\"",
+    "dev:electron": "tsc -p electron/tsconfig.json && electron .",
+    "dev:electron:inspect": "tsc -p electron/tsconfig.json && electron --inspect=5858 .",
+    "dev:renderer": "vite --clearScreen false",
+    "build": "npm run build:renderer && npm run build:electron",
+    "build:electron": "tsc -p electron/tsconfig.json",
+    "build:renderer": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .ts,.tsx",
+    "db:generate": "prisma generate --schema=database/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema=database/schema.prisma",
+    "db:studio": "prisma studio --schema=database/schema.prisma",
+    "postinstall": "prisma generate --schema=database/schema.prisma"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0",
+    "@prisma/client": "^5.10.0",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "electron": "^28.2.0",
+    "eslint": "^8.56.0",
+    "prisma": "^5.10.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12",
+    "vite-plugin-electron": "^0.28.0"
+  }
+}
