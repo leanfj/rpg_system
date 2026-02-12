@@ -50,6 +50,23 @@ function DiceRoller() {
   const [result, setResult] = useState<number | null>(null)
   const [detail, setDetail] = useState<string | null>(null)
 
+  const normalizeNotation = (notation: unknown): string => {
+    if (typeof notation === 'string') return notation.trim()
+    if (!notation || typeof notation !== 'object') return ''
+    if ('notation' in notation) {
+      const value = (notation as { notation?: unknown }).notation
+      return typeof value === 'string' ? value.trim() : String(value ?? '').trim()
+    }
+    return ''
+  }
+
+  const readNotationFromInput = (): string => {
+    const input = document.querySelector<HTMLInputElement>(
+      `#${rollerIdRef.current} input`
+    )
+    return input?.value?.trim() ?? ''
+  }
+
   const updateResultFromDiceBox = (results: DiceResults, preferD20Detail: boolean) => {
     const total = typeof results?.total === 'number' ? results.total : null
     let detailText: string | null = null
@@ -115,14 +132,10 @@ function DiceRoller() {
         setResult(null)
         setDetail(null)
         console.log('Current box instance:', boxInstance)
-        // const parsedNotation = typeof notation === 'string'
-        //   ? notation
-        //   : (notation && typeof notation === 'object' && 'notation' in notation
-        //     ? String((notation as { notation?: string }).notation ?? '')
-        //     : '')
-        console.log('Rolling dice with notation:', notation)
-        if (!notation) return
-        const results = await boxInstance.roll(notation)
+        const parsedNotation = normalizeNotation(notation) || readNotationFromInput()
+        console.log('Rolling dice with notation:', parsedNotation)
+        if (!parsedNotation) return
+        const results = await boxInstance.roll(parsedNotation)
         updateResultFromDiceBox(results, true)
       },
       onClear: () => {
