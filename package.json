@@ -6,6 +6,7 @@
   "author": "Leandro",
   "license": "MIT",
   "scripts": {
+    "start": "npm run dev",
     "dev": "npm run dev:all",
     "dev:all": "concurrently -n renderer,electron -c cyan,magenta \"npm run dev:renderer\" \"npm run dev:electron\"",
     "dev:electron": "tsc -p electron/tsconfig.json && electron .",
