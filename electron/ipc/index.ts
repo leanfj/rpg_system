@@ -1,4 +1,4 @@
-import { dialog, ipcMain, IpcMainInvokeEvent, shell } from 'electron'
+import { app, dialog, ipcMain, IpcMainInvokeEvent, shell } from 'electron'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { db } from '../services/database'
@@ -366,6 +366,32 @@ ipcMain.handle('transcripts:search', async (_event, query: string) => {
 ipcMain.handle('shell:openExternal', async (_event, url: string) => {
   await shell.openExternal(url)
   return true
+})
+
+// === Monsters (SRD 5e) ===
+let monstersCache: unknown[] | null = null
+
+ipcMain.handle('monsters:getAll', async () => {
+  if (monstersCache) {
+    return monstersCache
+  }
+  
+  try {
+    // Em desenvolvimento, o arquivo está em database/
+    // Em produção, precisa estar incluído no build
+    const isDev = !app.isPackaged
+    const basePath = isDev 
+      ? path.join(app.getAppPath(), 'database')
+      : path.join(process.resourcesPath, 'database')
+    
+    const filePath = path.join(basePath, '5e-SRD-Monsters.json')
+    const content = await fs.readFile(filePath, 'utf-8')
+    monstersCache = JSON.parse(content)
+    return monstersCache
+  } catch (error) {
+    console.error('Erro ao carregar monstros:', error)
+    return []
+  }
 })
 
 console.log('✓ IPC handlers registrados')

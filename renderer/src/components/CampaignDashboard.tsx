@@ -97,6 +97,51 @@ interface MasterNote {
   updatedAt: Date
 }
 
+interface SRDMonsterAction {
+  name: string
+  desc: string
+  attack_bonus?: number
+  damage?: Array<{
+    damage_type: { name: string }
+    damage_dice: string
+  }>
+}
+
+interface SRDMonster {
+  index: string
+  name: string
+  size: string
+  type: string
+  alignment: string
+  armor_class: Array<{ type: string; value: number }>
+  hit_points: number
+  hit_dice: string
+  hit_points_roll: string
+  speed: Record<string, string>
+  strength: number
+  dexterity: number
+  constitution: number
+  intelligence: number
+  wisdom: number
+  charisma: number
+  proficiencies: Array<{
+    value: number
+    proficiency: { name: string }
+  }>
+  damage_vulnerabilities: string[]
+  damage_resistances: string[]
+  damage_immunities: string[]
+  condition_immunities: Array<{ name: string }>
+  senses: Record<string, string | number>
+  languages: string
+  challenge_rating: number
+  proficiency_bonus: number
+  xp: number
+  special_abilities?: Array<{ name: string; desc: string }>
+  actions?: SRDMonsterAction[]
+  legendary_actions?: Array<{ name: string; desc: string }>
+}
+
 type TurnPeriodId = 'manha' | 'tarde' | 'noite' | 'madrugada'
 
 type TurnMonitorPVRow = {
@@ -965,6 +1010,9 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     trackId: null,
     url: null
   })
+  const [srdMonsters, setSrdMonsters] = useState<SRDMonster[]>([])
+  const [hoveredMonster, setHoveredMonster] = useState<SRDMonster | null>(null)
+  const [monsterTooltipPosition, setMonsterTooltipPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
 
   const getProficiencyBonusForLevel = (level: number) => {
     const normalizedLevel = Math.max(1, Number(level) || 1)
@@ -996,6 +1044,18 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       }
     })
   }, [computedProficiencyBonus])
+
+  useEffect(() => {
+    const loadMonsters = async () => {
+      try {
+        const data = await window.electron.monsters.getAll()
+        setSrdMonsters(data)
+      } catch (error) {
+        console.error('Erro ao carregar monstros:', error)
+      }
+    }
+    loadMonsters()
+  }, [])
 
 
   const loadCampaign = async () => {
@@ -3275,30 +3335,62 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                     <span>PV máx</span>
                     <span>PV atual</span>
                   </div>
-                  {turnMonitor.pvRows.map((row, index) => (
-                    <div key={`pv-${index}`} className="turns-table-row">
-                      <input
-                        type="text"
-                        placeholder="Nome"
-                        value={row.name}
-                        onChange={(event) => updatePvRow(index, 'name', event.target.value)}
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        placeholder="0"
-                        value={row.max}
-                        onChange={(event) => updatePvRow(index, 'max', event.target.value)}
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        placeholder="0"
-                        value={row.current}
-                        onChange={(event) => updatePvRow(index, 'current', event.target.value)}
-                      />
-                    </div>
-                  ))}
+                  {turnMonitor.pvRows.map((row, index) => {
+                    const selectedMonster = srdMonsters.find((m) => m.name === row.name)
+                    return (
+                      <div key={`pv-${index}`} className="turns-table-row pv-row">
+                        <div 
+                          className="pv-creature-select-wrapper"
+                          onMouseEnter={(e) => {
+                            if (selectedMonster) {
+                              setHoveredMonster(selectedMonster)
+                              setMonsterTooltipPosition({ x: e.clientX, y: e.clientY })
+                            }
+                          }}
+                          onMouseMove={(e) => {
+                            if (hoveredMonster) {
+                              setMonsterTooltipPosition({ x: e.clientX, y: e.clientY })
+                            }
+                          }}
+                          onMouseLeave={() => setHoveredMonster(null)}
+                        >
+                          <select
+                            value={row.name}
+                            onChange={(event) => {
+                              const monsterName = event.target.value
+                              updatePvRow(index, 'name', monsterName)
+                              const monster = srdMonsters.find((m) => m.name === monsterName)
+                              if (monster) {
+                                updatePvRow(index, 'max', String(monster.hit_points))
+                                updatePvRow(index, 'current', String(monster.hit_points))
+                              }
+                            }}
+                          >
+                            <option value="">Selecione...</option>
+                            {srdMonsters.map((monster) => (
+                              <option key={monster.index} value={monster.name}>
+                                {monster.name} (CR {monster.challenge_rating})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <input
+                          type="number"
+                          min={0}
+                          placeholder="0"
+                          value={row.max}
+                          onChange={(event) => updatePvRow(index, 'max', event.target.value)}
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          placeholder="0"
+                          value={row.current}
+                          onChange={(event) => updatePvRow(index, 'current', event.target.value)}
+                        />
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
               <div className="turns-section">
@@ -3493,6 +3585,86 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           </div>
         </article>
       </section>
+
+      {hoveredMonster && (
+        <div 
+          className="monster-tooltip"
+          style={{
+            left: monsterTooltipPosition.x + 15,
+            top: monsterTooltipPosition.y + 15
+          }}
+        >
+          <div className="monster-tooltip-header">
+            <strong>{hoveredMonster.name}</strong>
+            <span className="monster-cr">CR {hoveredMonster.challenge_rating}</span>
+          </div>
+          <div className="monster-tooltip-meta">
+            {hoveredMonster.size} {hoveredMonster.type}, {hoveredMonster.alignment}
+          </div>
+          <div className="monster-tooltip-stats">
+            <div className="monster-stat-row">
+              <span><strong>CA:</strong> {hoveredMonster.armor_class[0]?.value}</span>
+              <span><strong>PV:</strong> {hoveredMonster.hit_points} ({hoveredMonster.hit_dice})</span>
+            </div>
+            <div className="monster-stat-row">
+              <span><strong>Deslocamento:</strong> {Object.entries(hoveredMonster.speed).map(([k, v]) => `${k} ${v}`).join(', ')}</span>
+            </div>
+          </div>
+          <div className="monster-tooltip-abilities">
+            <span><strong>FOR:</strong> {hoveredMonster.strength}</span>
+            <span><strong>DES:</strong> {hoveredMonster.dexterity}</span>
+            <span><strong>CON:</strong> {hoveredMonster.constitution}</span>
+            <span><strong>INT:</strong> {hoveredMonster.intelligence}</span>
+            <span><strong>SAB:</strong> {hoveredMonster.wisdom}</span>
+            <span><strong>CAR:</strong> {hoveredMonster.charisma}</span>
+          </div>
+          {hoveredMonster.damage_immunities.length > 0 && (
+            <div className="monster-tooltip-info">
+              <strong>Imunidades:</strong> {hoveredMonster.damage_immunities.join(', ')}
+            </div>
+          )}
+          {hoveredMonster.damage_resistances.length > 0 && (
+            <div className="monster-tooltip-info">
+              <strong>Resistências:</strong> {hoveredMonster.damage_resistances.join(', ')}
+            </div>
+          )}
+          {hoveredMonster.damage_vulnerabilities.length > 0 && (
+            <div className="monster-tooltip-info">
+              <strong>Vulnerabilidades:</strong> {hoveredMonster.damage_vulnerabilities.join(', ')}
+            </div>
+          )}
+          {hoveredMonster.senses && (
+            <div className="monster-tooltip-info">
+              <strong>Sentidos:</strong> {Object.entries(hoveredMonster.senses).map(([k, v]) => `${k.replace('_', ' ')} ${v}`).join(', ')}
+            </div>
+          )}
+          {hoveredMonster.languages && (
+            <div className="monster-tooltip-info">
+              <strong>Idiomas:</strong> {hoveredMonster.languages}
+            </div>
+          )}
+          {hoveredMonster.special_abilities && hoveredMonster.special_abilities.length > 0 && (
+            <div className="monster-tooltip-section">
+              <strong>Habilidades Especiais:</strong>
+              {hoveredMonster.special_abilities.slice(0, 3).map((ability, i) => (
+                <div key={i} className="monster-ability">
+                  <em>{ability.name}:</em> {ability.desc.substring(0, 150)}{ability.desc.length > 150 ? '...' : ''}
+                </div>
+              ))}
+            </div>
+          )}
+          {hoveredMonster.actions && hoveredMonster.actions.length > 0 && (
+            <div className="monster-tooltip-section">
+              <strong>Ações:</strong>
+              {hoveredMonster.actions.slice(0, 3).map((action, i) => (
+                <div key={i} className="monster-ability">
+                  <em>{action.name}:</em> {action.desc.substring(0, 150)}{action.desc.length > 150 ? '...' : ''}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

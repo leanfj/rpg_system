@@ -1337,3 +1337,120 @@
   color: var(--primary);
   background: rgba(99, 102, 241, 0.1);
 }
+
+/* PV Row Select */
+.pv-creature-select-wrapper {
+  position: relative;
+  flex: 1;
+}
+
+.pv-creature-select-wrapper select {
+  width: 100%;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.pv-creature-select-wrapper select:hover {
+  border-color: var(--primary);
+}
+
+.pv-creature-select-wrapper select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+/* Monster Tooltip */
+.monster-tooltip {
+  position: fixed;
+  z-index: 1000;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  max-width: 420px;
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+  font-size: 0.85rem;
+}
+
+.monster-tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-xs);
+  padding-bottom: var(--spacing-xs);
+  border-bottom: 1px solid var(--border);
+}
+
+.monster-tooltip-header strong {
+  font-size: 1rem;
+  color: var(--primary);
+}
+
+.monster-cr {
+  background: var(--primary);
+  color: white;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.monster-tooltip-meta {
+  color: var(--text-secondary);
+  font-style: italic;
+  margin-bottom: var(--spacing-sm);
+}
+
+.monster-tooltip-stats {
+  margin-bottom: var(--spacing-sm);
+}
+
+.monster-stat-row {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.monster-tooltip-abilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
+  padding: var(--spacing-xs);
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+}
+
+.monster-tooltip-abilities span {
+  min-width: 60px;
+}
+
+.monster-tooltip-info {
+  margin-bottom: var(--spacing-xs);
+  line-height: 1.4;
+}
+
+.monster-tooltip-section {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--border);
+}
+
+.monster-ability {
+  margin-top: var(--spacing-xs);
+  padding-left: var(--spacing-sm);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.monster-ability em {
+  color: var(--text-primary);
+}

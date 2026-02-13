@@ -212,6 +212,11 @@ const electronAPI = {
   // === Shell ===
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url)
+  },
+
+  // === Monsters ===
+  monsters: {
+    getAll: () => ipcRenderer.invoke('monsters:getAll')
   }
 }
 
