@@ -1470,3 +1470,59 @@
 .monster-ability em {
   color: var(--text-primary);
 }
+
+/* Monster Tooltip Pinned (janela persistente) */
+.monster-tooltip-pinned {
+  pointer-events: auto;
+  position: fixed;
+  cursor: default;
+  padding-top: 0;
+}
+
+.monster-tooltip-drag-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  margin: 0 calc(-1 * var(--spacing-md));
+  margin-top: 0;
+  margin-bottom: var(--spacing-sm);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  cursor: grab;
+  user-select: none;
+}
+
+.monster-tooltip-drag-header:active {
+  cursor: grabbing;
+}
+
+.monster-tooltip-drag-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.monster-tooltip-close {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.monster-tooltip-close:hover {
+  background: var(--danger);
+  color: white;
+}

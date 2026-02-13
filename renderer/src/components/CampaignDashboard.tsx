@@ -1314,8 +1314,14 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     url: null
   })
   const [srdMonsters, setSrdMonsters] = useState<SRDMonster[]>([])
-  const [hoveredMonster, setHoveredMonster] = useState<SRDMonster | null>(null)
-  const [monsterTooltipPosition, setMonsterTooltipPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [pinnedMonsters, setPinnedMonsters] = useState<Array<{
+    id: number
+    monster: SRDMonster
+    position: { x: number; y: number }
+  }>>([])
+  const [draggingMonsterId, setDraggingMonsterId] = useState<number | null>(null)
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const nextMonsterPopupId = useRef(1)
   const [monsterImageCache, setMonsterImageCache] = useState<Record<string, string | null>>({})
   const [loadingMonsterImage, setLoadingMonsterImage] = useState(false)
 
@@ -1362,29 +1368,52 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     loadMonsters()
   }, [])
 
-  // Carrega imagem do monstro quando hover
+  // Carrega imagem dos monstros fixados
   useEffect(() => {
-    if (!hoveredMonster?.image) return
+    const monstersWithImages = pinnedMonsters.filter(p => p.monster.image && monsterImageCache[p.monster.image] === undefined)
+    if (monstersWithImages.length === 0) return
     
-    const imagePath = hoveredMonster.image
-    
-    // Já está em cache
-    if (monsterImageCache[imagePath] !== undefined) return
-    
-    const loadImage = async () => {
+    const loadImages = async () => {
       setLoadingMonsterImage(true)
-      try {
-        const dataUrl = await window.electron.monsters.getImage(imagePath)
-        setMonsterImageCache(prev => ({ ...prev, [imagePath]: dataUrl }))
-      } catch (error) {
-        console.error('Erro ao carregar imagem:', error)
-        setMonsterImageCache(prev => ({ ...prev, [imagePath]: null }))
-      } finally {
-        setLoadingMonsterImage(false)
+      for (const pinned of monstersWithImages) {
+        const imagePath = pinned.monster.image!
+        try {
+          const dataUrl = await window.electron.monsters.getImage(imagePath)
+          setMonsterImageCache(prev => ({ ...prev, [imagePath]: dataUrl }))
+        } catch (error) {
+          console.error('Erro ao carregar imagem:', error)
+          setMonsterImageCache(prev => ({ ...prev, [imagePath]: null }))
+        }
       }
+      setLoadingMonsterImage(false)
     }
-    loadImage()
-  }, [hoveredMonster?.image, monsterImageCache])
+    loadImages()
+  }, [pinnedMonsters, monsterImageCache])
+
+  // Drag do popup de monstro
+  useEffect(() => {
+    if (draggingMonsterId === null) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setPinnedMonsters(prev => prev.map(p => 
+        p.id === draggingMonsterId 
+          ? { ...p, position: { x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y } }
+          : p
+      ))
+    }
+
+    const handleMouseUp = () => {
+      setDraggingMonsterId(null)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [draggingMonsterId, dragOffset])
 
 
   const loadCampaign = async () => {
@@ -3673,16 +3702,14 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                           className="pv-creature-select-wrapper"
                           onMouseEnter={(e) => {
                             if (selectedMonster) {
-                              setHoveredMonster(selectedMonster)
-                              setMonsterTooltipPosition({ x: e.clientX, y: e.clientY })
+                              const newPopup = {
+                                id: nextMonsterPopupId.current++,
+                                monster: selectedMonster,
+                                position: { x: e.clientX + 15, y: e.clientY + 15 }
+                              }
+                              setPinnedMonsters(prev => [...prev, newPopup])
                             }
                           }}
-                          onMouseMove={(e) => {
-                            if (hoveredMonster) {
-                              setMonsterTooltipPosition({ x: e.clientX, y: e.clientY })
-                            }
-                          }}
-                          onMouseLeave={() => setHoveredMonster(null)}
                         >
                           <select
                             value={row.name}
@@ -3919,75 +3946,97 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
         </article>
       </section>
 
-      {hoveredMonster && (
+      {/* Janelas flutuantes fixadas (persistentes e arrastáveis) */}
+      {pinnedMonsters.map((pinned) => (
         <div 
-          className="monster-tooltip"
+          key={pinned.id}
+          className="monster-tooltip monster-tooltip-pinned"
           style={{
-            left: monsterTooltipPosition.x + 15,
-            top: monsterTooltipPosition.y + 15
+            left: pinned.position.x,
+            top: pinned.position.y
           }}
         >
-          {hoveredMonster.image && monsterImageCache[hoveredMonster.image] && (
+          <div 
+            className="monster-tooltip-drag-header"
+            onMouseDown={(e) => {
+              e.preventDefault()
+              setDraggingMonsterId(pinned.id)
+              setDragOffset({
+                x: e.clientX - pinned.position.x,
+                y: e.clientY - pinned.position.y
+              })
+            }}
+          >
+            <span className="monster-tooltip-drag-title">Estatísticas</span>
+            <button 
+              className="monster-tooltip-close"
+              onClick={() => setPinnedMonsters(prev => prev.filter(p => p.id !== pinned.id))}
+              title="Fechar"
+            >
+              &times;
+            </button>
+          </div>
+          {pinned.monster.image && monsterImageCache[pinned.monster.image] && (
             <div className="monster-tooltip-image">
               <img 
-                src={monsterImageCache[hoveredMonster.image]!} 
-                alt={hoveredMonster.name}
+                src={monsterImageCache[pinned.monster.image]!} 
+                alt={pinned.monster.name}
               />
             </div>
           )}
           <div className="monster-tooltip-header">
-            <strong>{hoveredMonster.name}</strong>
-            <span className="monster-cr">CR {hoveredMonster.challenge_rating}</span>
+            <strong>{pinned.monster.name}</strong>
+            <span className="monster-cr">CR {pinned.monster.challenge_rating}</span>
           </div>
           <div className="monster-tooltip-meta">
-            {translateSize(hoveredMonster.size)} {translateType(hoveredMonster.type)}, {translateAlignment(hoveredMonster.alignment)}
+            {translateSize(pinned.monster.size)} {translateType(pinned.monster.type)}, {translateAlignment(pinned.monster.alignment)}
           </div>
           <div className="monster-tooltip-stats">
             <div className="monster-stat-row">
-              <span><strong>CA:</strong> {hoveredMonster.armor_class[0]?.value}</span>
-              <span><strong>PV:</strong> {hoveredMonster.hit_points} ({hoveredMonster.hit_dice})</span>
+              <span><strong>CA:</strong> {pinned.monster.armor_class[0]?.value}</span>
+              <span><strong>PV:</strong> {pinned.monster.hit_points} ({pinned.monster.hit_dice})</span>
             </div>
             <div className="monster-stat-row">
-              <span><strong>Deslocamento:</strong> {Object.entries(hoveredMonster.speed).map(([k, v]) => `${translateSpeed(k)} ${v}`).join(', ')}</span>
+              <span><strong>Deslocamento:</strong> {Object.entries(pinned.monster.speed).map(([k, v]) => `${translateSpeed(k)} ${v}`).join(', ')}</span>
             </div>
           </div>
           <div className="monster-tooltip-abilities">
-            <span><strong>FOR:</strong> {hoveredMonster.strength}</span>
-            <span><strong>DES:</strong> {hoveredMonster.dexterity}</span>
-            <span><strong>CON:</strong> {hoveredMonster.constitution}</span>
-            <span><strong>INT:</strong> {hoveredMonster.intelligence}</span>
-            <span><strong>SAB:</strong> {hoveredMonster.wisdom}</span>
-            <span><strong>CAR:</strong> {hoveredMonster.charisma}</span>
+            <span><strong>FOR:</strong> {pinned.monster.strength}</span>
+            <span><strong>DES:</strong> {pinned.monster.dexterity}</span>
+            <span><strong>CON:</strong> {pinned.monster.constitution}</span>
+            <span><strong>INT:</strong> {pinned.monster.intelligence}</span>
+            <span><strong>SAB:</strong> {pinned.monster.wisdom}</span>
+            <span><strong>CAR:</strong> {pinned.monster.charisma}</span>
           </div>
-          {hoveredMonster.damage_immunities.length > 0 && (
+          {pinned.monster.damage_immunities.length > 0 && (
             <div className="monster-tooltip-info">
-              <strong>Imunidades:</strong> {hoveredMonster.damage_immunities.map(translateDamageType).join(', ')}
+              <strong>Imunidades:</strong> {pinned.monster.damage_immunities.map(translateDamageType).join(', ')}
             </div>
           )}
-          {hoveredMonster.damage_resistances.length > 0 && (
+          {pinned.monster.damage_resistances.length > 0 && (
             <div className="monster-tooltip-info">
-              <strong>Resistências:</strong> {hoveredMonster.damage_resistances.map(translateDamageType).join(', ')}
+              <strong>Resistências:</strong> {pinned.monster.damage_resistances.map(translateDamageType).join(', ')}
             </div>
           )}
-          {hoveredMonster.damage_vulnerabilities.length > 0 && (
+          {pinned.monster.damage_vulnerabilities.length > 0 && (
             <div className="monster-tooltip-info">
-              <strong>Vulnerabilidades:</strong> {hoveredMonster.damage_vulnerabilities.map(translateDamageType).join(', ')}
+              <strong>Vulnerabilidades:</strong> {pinned.monster.damage_vulnerabilities.map(translateDamageType).join(', ')}
             </div>
           )}
-          {hoveredMonster.senses && (
+          {pinned.monster.senses && (
             <div className="monster-tooltip-info">
-              <strong>Sentidos:</strong> {Object.entries(hoveredMonster.senses).map(([k, v]) => `${translateSense(k)} ${v}`).join(', ')}
+              <strong>Sentidos:</strong> {Object.entries(pinned.monster.senses).map(([k, v]) => `${translateSense(k)} ${v}`).join(', ')}
             </div>
           )}
-          {hoveredMonster.languages && (
+          {pinned.monster.languages && (
             <div className="monster-tooltip-info">
-              <strong>Idiomas:</strong> {hoveredMonster.languages}
+              <strong>Idiomas:</strong> {pinned.monster.languages}
             </div>
           )}
-          {hoveredMonster.special_abilities && hoveredMonster.special_abilities.length > 0 && (
+          {pinned.monster.special_abilities && pinned.monster.special_abilities.length > 0 && (
             <div className="monster-tooltip-section">
               <strong>Habilidades Especiais:</strong>
-              {hoveredMonster.special_abilities.slice(0, 3).map((ability, i) => {
+              {pinned.monster.special_abilities.slice(0, 3).map((ability, i) => {
                 const translatedDesc = translateDescription(ability.desc)
                 return (
                   <div key={i} className="monster-ability">
@@ -3997,10 +4046,10 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
               })}
             </div>
           )}
-          {hoveredMonster.actions && hoveredMonster.actions.length > 0 && (
+          {pinned.monster.actions && pinned.monster.actions.length > 0 && (
             <div className="monster-tooltip-section">
               <strong>Ações:</strong>
-              {hoveredMonster.actions.slice(0, 3).map((action, i) => {
+              {pinned.monster.actions.slice(0, 3).map((action, i) => {
                 const translatedDesc = translateDescription(action.desc)
                 return (
                   <div key={i} className="monster-ability">
@@ -4011,7 +4060,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
             </div>
           )}
         </div>
-      )}
+      ))}
     </div>
   )
 }
