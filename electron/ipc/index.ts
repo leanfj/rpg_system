@@ -394,4 +394,69 @@ ipcMain.handle('monsters:getAll', async () => {
   }
 })
 
+// Cache de imagens dos monstros
+const imageCache = new Map<string, string>()
+
+ipcMain.handle('monsters:getImage', async (_event, imagePath: string) => {
+  if (!imagePath) return null
+  
+  // Verifica se já está em cache (memória)
+  if (imageCache.has(imagePath)) {
+    return imageCache.get(imagePath)
+  }
+  
+  try {
+    // Define pasta de cache
+    const isDev = !app.isPackaged
+    const basePath = isDev 
+      ? path.join(app.getAppPath(), 'images')
+      : path.join(app.getPath('userData'), 'images')
+    
+    // Cria pasta se não existir
+    await fs.mkdir(basePath, { recursive: true })
+    
+    // Nome do arquivo baseado no path da API
+    const fileName = imagePath.replace(/\//g, '_').replace(/^_/, '')
+    const localPath = path.join(basePath, fileName)
+    
+    // Verifica se já existe no disco
+    try {
+      await fs.access(localPath)
+      // Arquivo existe, lê e retorna como data URL
+      const buffer = await fs.readFile(localPath)
+      const base64 = buffer.toString('base64')
+      const dataUrl = `data:image/png;base64,${base64}`
+      imageCache.set(imagePath, dataUrl)
+      return dataUrl
+    } catch {
+      // Arquivo não existe, precisa baixar
+    }
+    
+    // Baixa da API
+    const url = `https://www.dnd5eapi.co${imagePath}`
+    const response = await fetch(url)
+    
+    if (!response.ok) {
+      console.error(`Erro ao baixar imagem: ${response.status}`)
+      return null
+    }
+    
+    const arrayBuffer = await response.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    
+    // Salva no disco
+    await fs.writeFile(localPath, buffer)
+    
+    // Converte para data URL e cacheia
+    const base64 = buffer.toString('base64')
+    const dataUrl = `data:image/png;base64,${base64}`
+    imageCache.set(imagePath, dataUrl)
+    
+    return dataUrl
+  } catch (error) {
+    console.error('Erro ao carregar imagem do monstro:', error)
+    return null
+  }
+})
+
 console.log('✓ IPC handlers registrados')

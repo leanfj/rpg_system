@@ -29133,6 +29133,141 @@
     "url": "/api/2014/monsters/noble"
   },
   {
+    "index": "nothic",
+    "name": "Nothic",
+    "size": "Medium",
+    "type": "aberration",
+    "alignment": "neutral evil",
+    "armor_class": [
+      {
+        "type": "natural",
+        "value": 15
+      }
+    ],
+    "hit_points": 45,
+    "hit_dice": "6d8",
+    "hit_points_roll": "6d8+18",
+    "speed": {
+      "walk": "30 ft."
+    },
+    "strength": 14,
+    "dexterity": 16,
+    "constitution": 16,
+    "intelligence": 13,
+    "wisdom": 10,
+    "charisma": 8,
+    "proficiencies": [
+      {
+        "value": 3,
+        "proficiency": {
+          "index": "skill-arcana",
+          "name": "Skill: Arcana",
+          "url": "/api/2014/proficiencies/skill-arcana"
+        }
+      },
+      {
+        "value": 4,
+        "proficiency": {
+          "index": "skill-insight",
+          "name": "Skill: Insight",
+          "url": "/api/2014/proficiencies/skill-insight"
+        }
+      },
+      {
+        "value": 2,
+        "proficiency": {
+          "index": "skill-perception",
+          "name": "Skill: Perception",
+          "url": "/api/2014/proficiencies/skill-perception"
+        }
+      },
+      {
+        "value": 5,
+        "proficiency": {
+          "index": "skill-stealth",
+          "name": "Skill: Stealth",
+          "url": "/api/2014/proficiencies/skill-stealth"
+        }
+      }
+    ],
+    "damage_vulnerabilities": [],
+    "damage_resistances": [],
+    "damage_immunities": [],
+    "condition_immunities": [],
+    "senses": {
+      "truesight": "120 ft.",
+      "passive_perception": 12
+    },
+    "languages": "Undercommon",
+    "challenge_rating": 2,
+    "proficiency_bonus": 2,
+    "xp": 450,
+    "special_abilities": [
+      {
+        "name": "Keen Sight",
+        "desc": "The nothic has advantage on Wisdom (Perception) checks that rely on sight."
+      }
+    ],
+    "actions": [
+      {
+        "name": "Multiattack",
+        "multiattack_type": "actions",
+        "desc": "The nothic makes two claw attacks.",
+        "actions": [
+          {
+            "action_name": "Claw",
+            "count": 2,
+            "type": "melee"
+          }
+        ]
+      },
+      {
+        "name": "Claw",
+        "desc": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 6 (1d6 + 3) slashing damage.",
+        "attack_bonus": 4,
+        "damage": [
+          {
+            "damage_type": {
+              "index": "slashing",
+              "name": "Slashing",
+              "url": "/api/2014/damage-types/slashing"
+            },
+            "damage_dice": "1d6+3"
+          }
+        ]
+      },
+      {
+        "name": "Rotting Gaze",
+        "desc": "The nothic targets one creature it can see within 30 feet of it. The target must succeed on a DC 12 Constitution saving throw against this magic or take 10 (3d6) necrotic damage.",
+        "dc": {
+          "dc_type": {
+            "index": "con",
+            "name": "CON",
+            "url": "/api/2014/ability-scores/con"
+          },
+          "dc_value": 12,
+          "success_type": "none"
+        },
+        "damage": [
+          {
+            "damage_type": {
+              "index": "necrotic",
+              "name": "Necrotic",
+              "url": "/api/2014/damage-types/necrotic"
+            },
+            "damage_dice": "3d6"
+          }
+        ]
+      },
+      {
+        "name": "Weird Insight",
+        "desc": "The nothic targets one creature it can see within 30 feet of it. The target must contest its Charisma (Deception) check against the nothic's Wisdom (Insight) check. If the nothic wins, it magically learns one fact or secret about the target. The target automatically wins if it is immune to being charmed."
+      }
+    ],
+    "image": "/api/images/monsters/nothic.png",
+    "url": "/api/2014/monsters/nothic"
+  },
+  {
     "index": "ochre-jelly",
     "name": "Ochre Jelly",
     "size": "Large",

@@ -509,7 +509,7 @@
 }
 
 .turns-table.pv .turns-table-row {
-  grid-template-columns: 1.2fr 0.6fr 0.6fr;
+  grid-template-columns: 1.2fr 0.5fr 0.5fr 0.5fr;
 }
 
 .turns-table.monsters .turns-table-row {
@@ -1377,6 +1377,22 @@
   box-shadow: var(--shadow-lg);
   pointer-events: none;
   font-size: 0.85rem;
+}
+
+.monster-tooltip-image {
+  margin-bottom: var(--spacing-sm);
+  text-align: center;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-tertiary);
+}
+
+.monster-tooltip-image img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
 }
 
 .monster-tooltip-header {

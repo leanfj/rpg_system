@@ -155,6 +155,8 @@ interface SRDMonster {
   special_abilities?: Array<{ name: string; desc: string }>
   actions?: SRDMonsterAction[]
   legendary_actions?: Array<{ name: string; desc: string }>
+  image?: string
+  url?: string
 }
 
 interface ElectronAPI {
@@ -231,6 +233,7 @@ interface ElectronAPI {
 
   monsters: {
     getAll: () => Promise<SRDMonster[]>
+    getImage: (imagePath: string) => Promise<string | null>
   }
 }
 

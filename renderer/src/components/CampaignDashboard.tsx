@@ -140,6 +140,309 @@ interface SRDMonster {
   special_abilities?: Array<{ name: string; desc: string }>
   actions?: SRDMonsterAction[]
   legendary_actions?: Array<{ name: string; desc: string }>
+  image?: string
+  url?: string
+}
+
+// Traduções para termos de D&D 5e
+const sizeTranslations: Record<string, string> = {
+  'Tiny': 'Miúdo',
+  'Small': 'Pequeno',
+  'Medium': 'Médio',
+  'Large': 'Grande',
+  'Huge': 'Enorme',
+  'Gargantuan': 'Colossal'
+}
+
+const typeTranslations: Record<string, string> = {
+  'aberration': 'aberração',
+  'beast': 'besta',
+  'celestial': 'celestial',
+  'construct': 'constructo',
+  'dragon': 'dragão',
+  'elemental': 'elemental',
+  'fey': 'fada',
+  'fiend': 'corruptor',
+  'giant': 'gigante',
+  'humanoid': 'humanoide',
+  'monstrosity': 'monstruosidade',
+  'ooze': 'gosma',
+  'plant': 'planta',
+  'undead': 'morto-vivo',
+  'swarm of Tiny beasts': 'enxame de bestas Miúdas'
+}
+
+const alignmentTranslations: Record<string, string> = {
+  'lawful good': 'leal e bom',
+  'lawful neutral': 'leal e neutro',
+  'lawful evil': 'leal e mau',
+  'neutral good': 'neutro e bom',
+  'neutral': 'neutro',
+  'true neutral': 'neutro',
+  'neutral evil': 'neutro e mau',
+  'chaotic good': 'caótico e bom',
+  'chaotic neutral': 'caótico e neutro',
+  'chaotic evil': 'caótico e mau',
+  'unaligned': 'sem alinhamento',
+  'any alignment': 'qualquer alinhamento',
+  'any non-good alignment': 'qualquer alinhamento não bom',
+  'any non-lawful alignment': 'qualquer alinhamento não leal',
+  'any evil alignment': 'qualquer alinhamento mau',
+  'any chaotic alignment': 'qualquer alinhamento caótico'
+}
+
+const damageTypeTranslations: Record<string, string> = {
+  'acid': 'ácido',
+  'bludgeoning': 'concussão',
+  'cold': 'frio',
+  'fire': 'fogo',
+  'force': 'energia',
+  'lightning': 'elétrico',
+  'necrotic': 'necrótico',
+  'piercing': 'perfurante',
+  'poison': 'veneno',
+  'psychic': 'psíquico',
+  'radiant': 'radiante',
+  'slashing': 'cortante',
+  'thunder': 'trovão'
+}
+
+const speedTranslations: Record<string, string> = {
+  'walk': 'caminhada',
+  'fly': 'voo',
+  'swim': 'natação',
+  'climb': 'escalada',
+  'burrow': 'escavação',
+  'hover': 'pairar'
+}
+
+const senseTranslations: Record<string, string> = {
+  'darkvision': 'visão no escuro',
+  'blindsight': 'visão às cegas',
+  'truesight': 'visão verdadeira',
+  'tremorsense': 'sentido sísmico',
+  'passive_perception': 'percepção passiva'
+}
+
+// Traduções de nomes de habilidades especiais
+const abilityNameTranslations: Record<string, string> = {
+  'Amphibious': 'Anfíbio',
+  'Keen Smell': 'Faro Aguçado',
+  'Keen Sight': 'Visão Aguçada',
+  'Keen Hearing': 'Audição Aguçada',
+  'Keen Hearing and Smell': 'Audição e Faro Aguçados',
+  'Keen Senses': 'Sentidos Aguçados',
+  'Pack Tactics': 'Táticas de Bando',
+  'Pounce': 'Bote',
+  'Charge': 'Investida',
+  'Rampage': 'Fúria',
+  'Relentless': 'Implacável',
+  'Brave': 'Corajoso',
+  'Brute': 'Bruto',
+  'Cunning Action': 'Ação Ardilosa',
+  'Dark Devotion': 'Devoção Sombria',
+  'Fey Ancestry': 'Ancestral Feérico',
+  'Innate Spellcasting': 'Conjuração Inata',
+  'Spellcasting': 'Conjuração',
+  'Magic Resistance': 'Resistência à Magia',
+  'Magic Weapons': 'Armas Mágicas',
+  'Regeneration': 'Regeneração',
+  'Spider Climb': 'Escalar Aranha',
+  'Web Sense': 'Sentir Teias',
+  'Web Walker': 'Andar em Teias',
+  'Sunlight Sensitivity': 'Sensibilidade à Luz Solar',
+  'Shadow Stealth': 'Furtividade nas Sombras',
+  'Shapechanger': 'Metamorfo',
+  'Legendary Resistance': 'Resistência Lendária',
+  'Frightful Presence': 'Presença Aterrorizante',
+  'Turn Resistance': 'Resistência a Expulsão',
+  'Undead Fortitude': 'Fortitude Morta-Viva',
+  'Aggressive': 'Agressivo',
+  'Hold Breath': 'Prender Respiração',
+  'Illumination': 'Iluminação',
+  'Incorporeal Movement': 'Movimento Incorpóreo',
+  'False Appearance': 'Aparência Falsa',
+  'Freeze': 'Congelar',
+  'Heated Body': 'Corpo Aquecido',
+  'Water Susceptibility': 'Suscetibilidade à Água',
+  'Flyby': 'Voo Rasante',
+  'Mimicry': 'Mimetismo',
+  'Nimble Escape': 'Fuga Ágil',
+  'Sure-Footed': 'Pés Firmes',
+  'Trampling Charge': 'Investida Atropeladora',
+  'Two Heads': 'Duas Cabeças',
+  'Wakeful': 'Sempre Alerta',
+  'Standing Leap': 'Salto em Pé',
+  'Swamp Camouflage': 'Camuflagem de Pântano',
+  'Blood Frenzy': 'Frenesi de Sangue',
+  'Water Breathing': 'Respiração Aquática',
+  'Echolocation': 'Ecolocalização',
+  'Devil\'s Sight': 'Visão do Diabo',
+  'Ethereal Sight': 'Visão Etérea',
+  'Detect': 'Detectar',
+  'Multiattack': 'Multiataques',
+  'Legendary Actions': 'Ações Lendárias',
+  'Lair Actions': 'Ações de Covil',
+  'Mucous Cloud': 'Nuvem Mucosa',
+  'Probing Telepathy': 'Telepatia Investigativa'
+}
+
+// Traduções de nomes de ações
+const actionNameTranslations: Record<string, string> = {
+  'Multiattack': 'Ataques Múltiplos',
+  'Bite': 'Mordida',
+  'Claw': 'Garra',
+  'Claws': 'Garras',
+  'Tail': 'Cauda',
+  'Slam': 'Golpe',
+  'Fist': 'Punho',
+  'Gore': 'Chifrada',
+  'Hooves': 'Cascos',
+  'Hoof': 'Casco',
+  'Talons': 'Garras',
+  'Tentacle': 'Tentáculo',
+  'Tentacles': 'Tentáculos',
+  'Sting': 'Ferrão',
+  'Constrict': 'Constrição',
+  'Shortsword': 'Espada Curta',
+  'Longsword': 'Espada Longa',
+  'Greataxe': 'Machado Grande',
+  'Greatsword': 'Montante',
+  'Scimitar': 'Cimitarra',
+  'Dagger': 'Adaga',
+  'Javelin': 'Azagaia',
+  'Longbow': 'Arco Longo',
+  'Shortbow': 'Arco Curto',
+  'Crossbow': 'Besta',
+  'Light Crossbow': 'Besta Leve',
+  'Heavy Crossbow': 'Besta Pesada',
+  'Hand Crossbow': 'Besta de Mão',
+  'Spear': 'Lança',
+  'Club': 'Clava',
+  'Mace': 'Maça',
+  'Morningstar': 'Maça Estrela',
+  'Quarterstaff': 'Bordão',
+  'Greatclub': 'Clava Grande',
+  'Handaxe': 'Machadinha',
+  'Battleaxe': 'Machado de Batalha',
+  'Warhammer': 'Martelo de Guerra',
+  'Maul': 'Malho',
+  'Pike': 'Pique',
+  'Halberd': 'Alabarda',
+  'Glaive': 'Gládio',
+  'Trident': 'Tridente',
+  'Whip': 'Chicote',
+  'Web': 'Teia',
+  'Fire Breath': 'Sopro de Fogo',
+  'Breath Weapon': 'Arma de Sopro',
+  'Cold Breath': 'Sopro de Frio',
+  'Lightning Breath': 'Sopro de Relâmpago',
+  'Acid Breath': 'Sopro de Ácido',
+  'Poison Breath': 'Sopro de Veneno',
+  'Frightful Presence': 'Presença Aterrorizante',
+  'Wing Attack': 'Ataque de Asa',
+  'Tail Attack': 'Ataque de Cauda',
+  'Change Shape': 'Mudar Forma',
+  'Etherealness': 'Forma Etérea',
+  'Teleport': 'Teleporte',
+  'Charm': 'Encantar',
+  'Draining Kiss': 'Beijo Drenante',
+  'Read Thoughts': 'Ler Pensamentos',
+  'Innate Spellcasting': 'Conjuração Inata',
+  'Spellcasting': 'Conjuração',
+  'Leadership': 'Liderança',
+  'Parry': 'Aparar',
+  'Enslave': 'Escravizar',
+  'Detect': 'Detectar',
+  'Tail Swipe': 'Golpe de Cauda',
+  'Rock': 'Pedra',
+  'Sling': 'Funda',
+  'Psychic Drain': 'Drenar Psíquico'
+}
+
+// Traduções de termos comuns em descrições
+const descriptionTerms: Array<[RegExp, string]> = [
+  [/Melee Weapon Attack/gi, 'Ataque Corpo a Corpo com Arma'],
+  [/Ranged Weapon Attack/gi, 'Ataque à Distância com Arma'],
+  [/Melee or Ranged Weapon Attack/gi, 'Ataque Corpo a Corpo ou à Distância com Arma'],
+  [/Melee Spell Attack/gi, 'Ataque Corpo a Corpo com Magia'],
+  [/Ranged Spell Attack/gi, 'Ataque à Distância com Magia'],
+  [/to hit/gi, 'para acertar'],
+  [/reach (\d+) ft\./gi, 'alcance $1 ft.'],
+  [/range (\d+)\/(\d+) ft\./gi, 'alcance $1/$2 ft.'],
+  [/one target/gi, 'um alvo'],
+  [/one creature/gi, 'uma criatura'],
+  [/Hit:/gi, 'Acerto:'],
+  [/(\d+d\d+\s*[+\-]\s*\d+)/g, '$1'],
+  [/bludgeoning damage/gi, 'dano de concussão'],
+  [/piercing damage/gi, 'dano perfurante'],
+  [/slashing damage/gi, 'dano cortante'],
+  [/fire damage/gi, 'dano de fogo'],
+  [/cold damage/gi, 'dano de frio'],
+  [/lightning damage/gi, 'dano elétrico'],
+  [/thunder damage/gi, 'dano de trovão'],
+  [/acid damage/gi, 'dano de ácido'],
+  [/poison damage/gi, 'dano de veneno'],
+  [/necrotic damage/gi, 'dano necrótico'],
+  [/radiant damage/gi, 'dano radiante'],
+  [/psychic damage/gi, 'dano psíquico'],
+  [/force damage/gi, 'dano de energia'],
+  [/DC (\d+)/g, 'CD $1'],
+  [/saving throw/gi, 'teste de resistência'],
+  [/Strength saving throw/gi, 'teste de resistência de Força'],
+  [/Dexterity saving throw/gi, 'teste de resistência de Destreza'],
+  [/Constitution saving throw/gi, 'teste de resistência de Constituição'],
+  [/Intelligence saving throw/gi, 'teste de resistência de Inteligência'],
+  [/Wisdom saving throw/gi, 'teste de resistência de Sabedoria'],
+  [/Charisma saving throw/gi, 'teste de resistência de Carisma'],
+  [/on a failed save/gi, 'em caso de falha'],
+  [/on a successful save/gi, 'em caso de sucesso'],
+  [/half as much damage/gi, 'metade do dano'],
+  [/is knocked prone/gi, 'fica caído'],
+  [/is grappled/gi, 'fica agarrado'],
+  [/is restrained/gi, 'fica impedido'],
+  [/is paralyzed/gi, 'fica paralisado'],
+  [/is stunned/gi, 'fica atordoado'],
+  [/is frightened/gi, 'fica amedrontado'],
+  [/is charmed/gi, 'fica enfeitiçado'],
+  [/is poisoned/gi, 'fica envenenado'],
+  [/is blinded/gi, 'fica cego'],
+  [/is deafened/gi, 'fica surdo'],
+  [/is incapacitated/gi, 'fica incapacitado'],
+  [/is petrified/gi, 'fica petrificado'],
+  [/can breathe air and water/gi, 'pode respirar ar e água'],
+  [/advantage on/gi, 'vantagem em'],
+  [/disadvantage on/gi, 'desvantagem em'],
+  [/attack rolls/gi, 'jogadas de ataque'],
+  [/ability checks/gi, 'testes de habilidade'],
+  [/within (\d+) feet/gi, 'em até $1 pés'],
+  [/(\d+) feet/gi, '$1 pés']
+]
+
+const translateSize = (size: string): string => sizeTranslations[size] || size
+const translateType = (type: string): string => typeTranslations[type.toLowerCase()] || type
+const translateAlignment = (alignment: string): string => alignmentTranslations[alignment.toLowerCase()] || alignment
+const translateDamageType = (damage: string): string => {
+  const lower = damage.toLowerCase()
+  for (const [en, pt] of Object.entries(damageTypeTranslations)) {
+    if (lower.includes(en)) {
+      return damage.replace(new RegExp(en, 'gi'), pt)
+    }
+  }
+  return damage
+}
+const translateSpeed = (key: string): string => speedTranslations[key.toLowerCase()] || key
+const translateSense = (key: string): string => senseTranslations[key.toLowerCase()] || key.replace('_', ' ')
+
+const translateAbilityName = (name: string): string => abilityNameTranslations[name] || name
+const translateActionName = (name: string): string => actionNameTranslations[name] || name
+
+const translateDescription = (desc: string): string => {
+  let translated = desc
+  for (const [pattern, replacement] of descriptionTerms) {
+    translated = translated.replace(pattern, replacement)
+  }
+  return translated
 }
 
 type TurnPeriodId = 'manha' | 'tarde' | 'noite' | 'madrugada'
@@ -1013,6 +1316,8 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
   const [srdMonsters, setSrdMonsters] = useState<SRDMonster[]>([])
   const [hoveredMonster, setHoveredMonster] = useState<SRDMonster | null>(null)
   const [monsterTooltipPosition, setMonsterTooltipPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const [monsterImageCache, setMonsterImageCache] = useState<Record<string, string | null>>({})
+  const [loadingMonsterImage, setLoadingMonsterImage] = useState(false)
 
   const getProficiencyBonusForLevel = (level: number) => {
     const normalizedLevel = Math.max(1, Number(level) || 1)
@@ -1056,6 +1361,30 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     }
     loadMonsters()
   }, [])
+
+  // Carrega imagem do monstro quando hover
+  useEffect(() => {
+    if (!hoveredMonster?.image) return
+    
+    const imagePath = hoveredMonster.image
+    
+    // Já está em cache
+    if (monsterImageCache[imagePath] !== undefined) return
+    
+    const loadImage = async () => {
+      setLoadingMonsterImage(true)
+      try {
+        const dataUrl = await window.electron.monsters.getImage(imagePath)
+        setMonsterImageCache(prev => ({ ...prev, [imagePath]: dataUrl }))
+      } catch (error) {
+        console.error('Erro ao carregar imagem:', error)
+        setMonsterImageCache(prev => ({ ...prev, [imagePath]: null }))
+      } finally {
+        setLoadingMonsterImage(false)
+      }
+    }
+    loadImage()
+  }, [hoveredMonster?.image, monsterImageCache])
 
 
   const loadCampaign = async () => {
@@ -3332,6 +3661,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                 <div className="turns-table pv">
                   <div className="turns-table-row turns-table-header">
                     <span>Criatura</span>
+                    <span>CA</span>
                     <span>PV máx</span>
                     <span>PV atual</span>
                   </div>
@@ -3374,6 +3704,9 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                             ))}
                           </select>
                         </div>
+                        <span className="pv-ac-value">
+                          {selectedMonster?.armor_class[0]?.value ?? '-'}
+                        </span>
                         <input
                           type="number"
                           min={0}
@@ -3594,12 +3927,20 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
             top: monsterTooltipPosition.y + 15
           }}
         >
+          {hoveredMonster.image && monsterImageCache[hoveredMonster.image] && (
+            <div className="monster-tooltip-image">
+              <img 
+                src={monsterImageCache[hoveredMonster.image]!} 
+                alt={hoveredMonster.name}
+              />
+            </div>
+          )}
           <div className="monster-tooltip-header">
             <strong>{hoveredMonster.name}</strong>
             <span className="monster-cr">CR {hoveredMonster.challenge_rating}</span>
           </div>
           <div className="monster-tooltip-meta">
-            {hoveredMonster.size} {hoveredMonster.type}, {hoveredMonster.alignment}
+            {translateSize(hoveredMonster.size)} {translateType(hoveredMonster.type)}, {translateAlignment(hoveredMonster.alignment)}
           </div>
           <div className="monster-tooltip-stats">
             <div className="monster-stat-row">
@@ -3607,7 +3948,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
               <span><strong>PV:</strong> {hoveredMonster.hit_points} ({hoveredMonster.hit_dice})</span>
             </div>
             <div className="monster-stat-row">
-              <span><strong>Deslocamento:</strong> {Object.entries(hoveredMonster.speed).map(([k, v]) => `${k} ${v}`).join(', ')}</span>
+              <span><strong>Deslocamento:</strong> {Object.entries(hoveredMonster.speed).map(([k, v]) => `${translateSpeed(k)} ${v}`).join(', ')}</span>
             </div>
           </div>
           <div className="monster-tooltip-abilities">
@@ -3620,22 +3961,22 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           </div>
           {hoveredMonster.damage_immunities.length > 0 && (
             <div className="monster-tooltip-info">
-              <strong>Imunidades:</strong> {hoveredMonster.damage_immunities.join(', ')}
+              <strong>Imunidades:</strong> {hoveredMonster.damage_immunities.map(translateDamageType).join(', ')}
             </div>
           )}
           {hoveredMonster.damage_resistances.length > 0 && (
             <div className="monster-tooltip-info">
-              <strong>Resistências:</strong> {hoveredMonster.damage_resistances.join(', ')}
+              <strong>Resistências:</strong> {hoveredMonster.damage_resistances.map(translateDamageType).join(', ')}
             </div>
           )}
           {hoveredMonster.damage_vulnerabilities.length > 0 && (
             <div className="monster-tooltip-info">
-              <strong>Vulnerabilidades:</strong> {hoveredMonster.damage_vulnerabilities.join(', ')}
+              <strong>Vulnerabilidades:</strong> {hoveredMonster.damage_vulnerabilities.map(translateDamageType).join(', ')}
             </div>
           )}
           {hoveredMonster.senses && (
             <div className="monster-tooltip-info">
-              <strong>Sentidos:</strong> {Object.entries(hoveredMonster.senses).map(([k, v]) => `${k.replace('_', ' ')} ${v}`).join(', ')}
+              <strong>Sentidos:</strong> {Object.entries(hoveredMonster.senses).map(([k, v]) => `${translateSense(k)} ${v}`).join(', ')}
             </div>
           )}
           {hoveredMonster.languages && (
@@ -3646,21 +3987,27 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           {hoveredMonster.special_abilities && hoveredMonster.special_abilities.length > 0 && (
             <div className="monster-tooltip-section">
               <strong>Habilidades Especiais:</strong>
-              {hoveredMonster.special_abilities.slice(0, 3).map((ability, i) => (
-                <div key={i} className="monster-ability">
-                  <em>{ability.name}:</em> {ability.desc.substring(0, 150)}{ability.desc.length > 150 ? '...' : ''}
-                </div>
-              ))}
+              {hoveredMonster.special_abilities.slice(0, 3).map((ability, i) => {
+                const translatedDesc = translateDescription(ability.desc)
+                return (
+                  <div key={i} className="monster-ability">
+                    <em>{translateAbilityName(ability.name)}:</em> {translatedDesc.substring(0, 150)}{translatedDesc.length > 150 ? '...' : ''}
+                  </div>
+                )
+              })}
             </div>
           )}
           {hoveredMonster.actions && hoveredMonster.actions.length > 0 && (
             <div className="monster-tooltip-section">
               <strong>Ações:</strong>
-              {hoveredMonster.actions.slice(0, 3).map((action, i) => (
-                <div key={i} className="monster-ability">
-                  <em>{action.name}:</em> {action.desc.substring(0, 150)}{action.desc.length > 150 ? '...' : ''}
-                </div>
-              ))}
+              {hoveredMonster.actions.slice(0, 3).map((action, i) => {
+                const translatedDesc = translateDescription(action.desc)
+                return (
+                  <div key={i} className="monster-ability">
+                    <em>{translateActionName(action.name)}:</em> {translatedDesc.substring(0, 150)}{translatedDesc.length > 150 ? '...' : ''}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

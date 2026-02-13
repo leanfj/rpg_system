@@ -216,7 +216,8 @@ const electronAPI = {
 
   // === Monsters ===
   monsters: {
-    getAll: () => ipcRenderer.invoke('monsters:getAll')
+    getAll: () => ipcRenderer.invoke('monsters:getAll'),
+    getImage: (imagePath: string) => ipcRenderer.invoke('monsters:getImage', imagePath)
   }
 }
 
