@@ -196,6 +196,17 @@ const electronAPI = {
   turnMonitor: {
     getByCampaign: (campaignId: string) => ipcRenderer.invoke('turnMonitor:getByCampaign', campaignId),
     save: (data: { campaignId: string; content: string }) => ipcRenderer.invoke('turnMonitor:save', data)
+  },
+
+  // === Midia ===
+  media: {
+    pickAudioFiles: () => ipcRenderer.invoke('media:pickAudioFiles'),
+    readAudioFile: (filePath: string) => ipcRenderer.invoke('media:readAudioFile', filePath),
+    toFileUrl: (filePath: string) => {
+      const normalized = filePath.replace(/\\/g, '/')
+      const prefix = normalized.startsWith('/') ? '' : '/'
+      return `file://${encodeURI(`${prefix}${normalized}`)}`
+    }
   }
 }
 

@@ -1,4 +1,6 @@
-import { ipcMain, IpcMainInvokeEvent } from 'electron'
+import { dialog, ipcMain, IpcMainInvokeEvent } from 'electron'
+import { promises as fs } from 'fs'
+import path from 'path'
 import { db } from '../services/database'
 import { 
   startRecording, 
@@ -172,6 +174,37 @@ ipcMain.handle('masterNotes:save', async (_event, data: {
     create: { campaignId: data.campaignId, content: data.content },
     update: { content: data.content }
   })
+})
+
+// === Midia ===
+ipcMain.handle('media:pickAudioFiles', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      {
+        name: 'Audio',
+        extensions: ['mp3', 'wav', 'ogg', 'webm']
+      }
+    ]
+  })
+
+  if (result.canceled) return []
+  return result.filePaths
+})
+
+ipcMain.handle('media:readAudioFile', async (_event, filePath: string) => {
+  const data = await fs.readFile(filePath)
+  const ext = path.extname(filePath).toLowerCase()
+  const mimeMap: Record<string, string> = {
+    '.mp3': 'audio/mpeg',
+    '.wav': 'audio/wav',
+    '.ogg': 'audio/ogg',
+    '.webm': 'audio/webm'
+  }
+  return {
+    data,
+    mimeType: mimeMap[ext] || 'audio/mpeg'
+  }
 })
 
 // === Monitoramento de turnos ===

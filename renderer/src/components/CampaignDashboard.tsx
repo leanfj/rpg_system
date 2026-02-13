@@ -115,8 +115,25 @@ type TurnMonitorEffectRow = {
   duration: string
 }
 
+type MusicCategoryId = 'combate' | 'viagem' | 'taverna' | 'suspense' | 'exploracao' | 'cidade'
+
+type MusicTrack = {
+  id: string
+  name: string
+  path: string
+}
+
+type MusicState = {
+  categories: Record<MusicCategoryId, MusicTrack[]>
+  activeCategoryId: MusicCategoryId
+  activeTrackId: string | null
+  isPlaying: boolean
+  volume: number
+  autoMode: boolean
+}
+
 type TurnMonitorData = {
-  periods: Record<TurnPeriodId, boolean[]>
+  periods: Record<TurnPeriodId, boolean[][]>
   orderOfMarch: string
   orderOfWatch: string
   actions: boolean[]
@@ -127,6 +144,7 @@ type TurnMonitorData = {
   pvRows: TurnMonitorPVRow[]
   monsterRows: TurnMonitorMonsterRow[]
   effectRows: TurnMonitorEffectRow[]
+  music: MusicState
 }
 
 type EncounterEnvironment =
@@ -140,10 +158,29 @@ type EncounterEnvironment =
 
 type EncounterDifficulty = 'easy' | 'medium' | 'hard' | 'deadly'
 
-const TURN_SLOT_COUNT = 6
+const TURN_ROW_COUNT = 6
+const TURN_COLUMN_COUNT = 6
 const PV_ROW_COUNT = 6
 const EFFECT_ROW_COUNT = 6
 const MONSTER_ROW_COUNT = 6
+
+const MUSIC_CATEGORIES: Array<{ id: MusicCategoryId; label: string }> = [
+  { id: 'combate', label: 'Combate' },
+  { id: 'viagem', label: 'Viagem' },
+  { id: 'taverna', label: 'Taverna' },
+  { id: 'suspense', label: 'Suspense' },
+  { id: 'exploracao', label: 'Exploração' },
+  { id: 'cidade', label: 'Cidade' }
+]
+
+const MUSIC_KEYWORDS: Record<MusicCategoryId, string[]> = {
+  combate: ['iniciativa', 'combate', 'atacar', 'batalha', 'inimigos'],
+  viagem: ['viagem', 'estrada', 'caminho', 'partida', 'rumo'],
+  taverna: ['taverna', 'estalagem', 'bebida', 'caneca'],
+  suspense: ['suspeito', 'estranho', 'sombras', 'medo', 'cuidado'],
+  exploracao: ['explorar', 'exploração', 'caverna', 'ruínas', 'vasculhar'],
+  cidade: ['cidade', 'mercado', 'rua', 'guarda', 'praça']
+}
 
 const TURN_PERIODS = [
   { id: 'manha' as TurnPeriodId, label: 'Período da manhã' },
@@ -152,7 +189,8 @@ const TURN_PERIODS = [
   { id: 'madrugada' as TurnPeriodId, label: 'Período da madrugada' }
 ]
 
-const TURN_SLOTS = Array.from({ length: TURN_SLOT_COUNT }, (_, index) => index + 1)
+const TURN_ROWS = Array.from({ length: TURN_ROW_COUNT }, (_, index) => index + 1)
+const TURN_COLUMNS = Array.from({ length: TURN_COLUMN_COUNT }, (_, index) => index + 1)
 
 const DUNGEON_ACTIONS = [
   'Movimentar-se',
@@ -710,12 +748,28 @@ const isEncounterEnvironment = (value: string): value is EncounterEnvironment =>
 const isEncounterDifficulty = (value: string): value is EncounterDifficulty =>
   ENCOUNTER_DIFFICULTIES.some((diff) => diff.id === value)
 
+const createDefaultMusicState = (): MusicState => ({
+  categories: {
+    combate: [],
+    viagem: [],
+    taverna: [],
+    suspense: [],
+    exploracao: [],
+    cidade: []
+  },
+  activeCategoryId: 'exploracao',
+  activeTrackId: null,
+  isPlaying: false,
+  volume: 0.65,
+  autoMode: true
+})
+
 const createDefaultTurnMonitorData = (): TurnMonitorData => ({
   periods: {
-    manha: Array(TURN_SLOT_COUNT).fill(false),
-    tarde: Array(TURN_SLOT_COUNT).fill(false),
-    noite: Array(TURN_SLOT_COUNT).fill(false),
-    madrugada: Array(TURN_SLOT_COUNT).fill(false)
+    manha: Array.from({ length: TURN_ROW_COUNT }, () => Array(TURN_COLUMN_COUNT).fill(false)),
+    tarde: Array.from({ length: TURN_ROW_COUNT }, () => Array(TURN_COLUMN_COUNT).fill(false)),
+    noite: Array.from({ length: TURN_ROW_COUNT }, () => Array(TURN_COLUMN_COUNT).fill(false)),
+    madrugada: Array.from({ length: TURN_ROW_COUNT }, () => Array(TURN_COLUMN_COUNT).fill(false))
   },
   orderOfMarch: '',
   orderOfWatch: '',
@@ -728,7 +782,8 @@ const createDefaultTurnMonitorData = (): TurnMonitorData => ({
   encounterDifficulty: 'medium',
   pvRows: Array.from({ length: PV_ROW_COUNT }, () => ({ name: '', max: '', current: '' })),
   monsterRows: Array.from({ length: MONSTER_ROW_COUNT }, () => ({ group: '', area: '', notes: '' })),
-  effectRows: Array.from({ length: EFFECT_ROW_COUNT }, () => ({ effect: '', duration: '' }))
+  effectRows: Array.from({ length: EFFECT_ROW_COUNT }, () => ({ effect: '', duration: '' })),
+  music: createDefaultMusicState()
 })
 
 const normalizeArray = <T,>(value: T[] | undefined, length: number, fallback: T): T[] => {
@@ -746,10 +801,46 @@ const normalizeTurnMonitorData = (value?: Partial<TurnMonitorData> | null): Turn
     value.encounterDifficulty && isEncounterDifficulty(value.encounterDifficulty)
       ? value.encounterDifficulty
       : defaults.encounterDifficulty
+  const normalizeTurnPeriod = (periodValue?: boolean[] | boolean[][]) => {
+    if (Array.isArray(periodValue) && Array.isArray(periodValue[0])) {
+      return Array.from({ length: TURN_ROW_COUNT }, (_, rowIndex) =>
+        normalizeArray(periodValue[rowIndex] as boolean[] | undefined, TURN_COLUMN_COUNT, false)
+      )
+    }
+
+    if (Array.isArray(periodValue)) {
+      const firstRow = normalizeArray(periodValue as boolean[], TURN_COLUMN_COUNT, false)
+      const remainingRows = Array.from({ length: TURN_ROW_COUNT - 1 }, () =>
+        Array(TURN_COLUMN_COUNT).fill(false)
+      )
+      return [firstRow, ...remainingRows]
+    }
+
+    return Array.from({ length: TURN_ROW_COUNT }, () => Array(TURN_COLUMN_COUNT).fill(false))
+  }
+
   const periods = TURN_PERIODS.reduce((acc, period) => {
-    acc[period.id] = normalizeArray(value.periods?.[period.id], TURN_SLOT_COUNT, false)
+    acc[period.id] = normalizeTurnPeriod(value.periods?.[period.id])
     return acc
-  }, {} as Record<TurnPeriodId, boolean[]>)
+  }, {} as Record<TurnPeriodId, boolean[][]>)
+
+  const incomingMusic = value.music ?? {}
+  const defaultMusic = defaults.music
+  const normalizedMusic: MusicState = {
+    categories: {
+      combate: incomingMusic.categories?.combate ?? defaultMusic.categories.combate,
+      viagem: incomingMusic.categories?.viagem ?? defaultMusic.categories.viagem,
+      taverna: incomingMusic.categories?.taverna ?? defaultMusic.categories.taverna,
+      suspense: incomingMusic.categories?.suspense ?? defaultMusic.categories.suspense,
+      exploracao: incomingMusic.categories?.exploracao ?? defaultMusic.categories.exploracao,
+      cidade: incomingMusic.categories?.cidade ?? defaultMusic.categories.cidade
+    },
+    activeCategoryId: incomingMusic.activeCategoryId ?? defaultMusic.activeCategoryId,
+    activeTrackId: incomingMusic.activeTrackId ?? defaultMusic.activeTrackId,
+    isPlaying: incomingMusic.isPlaying ?? defaultMusic.isPlaying,
+    volume: typeof incomingMusic.volume === 'number' ? incomingMusic.volume : defaultMusic.volume,
+    autoMode: typeof incomingMusic.autoMode === 'boolean' ? incomingMusic.autoMode : defaultMusic.autoMode
+  }
 
   return {
     ...defaults,
@@ -773,7 +864,8 @@ const normalizeTurnMonitorData = (value?: Partial<TurnMonitorData> | null): Turn
     effectRows: Array.from({ length: EFFECT_ROW_COUNT }, (_, index) => ({
       effect: value.effectRows?.[index]?.effect ?? '',
       duration: value.effectRows?.[index]?.duration ?? ''
-    }))
+    })),
+    music: normalizedMusic
   }
 }
 
@@ -865,6 +957,12 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
   const [turnMonitor, setTurnMonitor] = useState<TurnMonitorData>(() => createDefaultTurnMonitorData())
   const [turnMonitorStatus, setTurnMonitorStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const hasLoadedTurnMonitorRef = useRef(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const lastAutoSwitchRef = useRef(0)
+  const audioSourceRef = useRef<{ trackId: string | null; url: string | null }>({
+    trackId: null,
+    url: null
+  })
 
   const getProficiencyBonusForLevel = (level: number) => {
     const normalizedLevel = Math.max(1, Number(level) || 1)
@@ -1557,12 +1655,112 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
   ])
 
   useEffect(() => {
+    audioRef.current = new Audio()
+    audioRef.current.loop = true
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.src = ''
+      }
+      if (audioSourceRef.current.url) {
+        URL.revokeObjectURL(audioSourceRef.current.url)
+      }
+      audioSourceRef.current = { trackId: null, url: null }
+      audioRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
     if (!hasLoadedTurnMonitorRef.current) return
     const timer = setTimeout(() => {
       saveTurnMonitor(turnMonitor, false)
     }, 700)
     return () => clearTimeout(timer)
   }, [saveTurnMonitor, turnMonitor])
+
+  useEffect(() => {
+    if (!audioRef.current) return
+    audioRef.current.volume = Math.min(1, Math.max(0, turnMonitor.music.volume))
+  }, [turnMonitor.music.volume])
+
+  useEffect(() => {
+    if (!audioRef.current) return
+    let isActive = true
+    const syncPlayback = async () => {
+      const categoryTracks = turnMonitor.music.categories[turnMonitor.music.activeCategoryId]
+      const activeTrack = categoryTracks.find((track) => track.id === turnMonitor.music.activeTrackId)
+      const nextTrack = activeTrack ?? categoryTracks[0]
+      if (!nextTrack) {
+        audioRef.current?.pause()
+        return
+      }
+
+      if (audioSourceRef.current.trackId !== nextTrack.id) {
+        try {
+          const fileData = await window.electron.media.readAudioFile(nextTrack.path)
+          if (!isActive || !audioRef.current) return
+          const bytes = fileData.data instanceof ArrayBuffer
+            ? new Uint8Array(fileData.data)
+            : new Uint8Array(fileData.data)
+          const blob = new Blob([bytes], { type: fileData.mimeType })
+          const url = URL.createObjectURL(blob)
+          if (audioSourceRef.current.url) {
+            URL.revokeObjectURL(audioSourceRef.current.url)
+          }
+          audioSourceRef.current = { trackId: nextTrack.id, url }
+          audioRef.current.src = url
+        } catch (error) {
+          console.error('Erro ao carregar música:', error)
+          return
+        }
+      }
+
+      if (turnMonitor.music.isPlaying) {
+        audioRef.current.play().catch((error) => {
+          console.error('Erro ao tocar música:', error)
+        })
+      } else {
+        audioRef.current.pause()
+      }
+    }
+
+    syncPlayback()
+    return () => {
+      isActive = false
+    }
+  }, [
+    turnMonitor.music.activeCategoryId,
+    turnMonitor.music.activeTrackId,
+    turnMonitor.music.categories,
+    turnMonitor.music.isPlaying
+  ])
+
+  useEffect(() => {
+    if (!turnMonitor.music.autoMode) return
+    const unsubscribe = window.electron.audio.onTranscript((text) => {
+      const normalized = text.toLowerCase()
+      const now = Date.now()
+      if (now - lastAutoSwitchRef.current < 5000) return
+      const matched = MUSIC_CATEGORIES.find((category) =>
+        MUSIC_KEYWORDS[category.id].some((keyword) => normalized.includes(keyword))
+      )
+      if (!matched) return
+      const tracks = turnMonitor.music.categories[matched.id]
+      if (tracks.length === 0) return
+      const nextTrack = tracks[Math.floor(Math.random() * tracks.length)]
+      lastAutoSwitchRef.current = now
+      setTurnMonitor((prev) => ({
+        ...prev,
+        music: {
+          ...prev.music,
+          activeCategoryId: matched.id,
+          activeTrackId: nextTrack.id,
+          isPlaying: true
+        }
+      }))
+    })
+    return unsubscribe
+  }, [turnMonitor.music.autoMode, turnMonitor.music.categories])
 
   const formatDate = (value?: Date | null) => {
     if (!value) return 'Sem sessões'
@@ -1578,13 +1776,15 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           ? 'Erro ao salvar'
           : ''
 
-  const updateTurnPeriod = (periodId: TurnPeriodId, index: number, value: boolean) => {
+  const updateTurnPeriod = (periodId: TurnPeriodId, rowIndex: number, columnIndex: number, value: boolean) => {
     setTurnMonitor((prev) => ({
       ...prev,
       periods: {
         ...prev.periods,
-        [periodId]: prev.periods[periodId].map((slot, slotIndex) =>
-          slotIndex === index ? value : slot
+        [periodId]: prev.periods[periodId].map((row, currentRowIndex) =>
+          currentRowIndex === rowIndex
+            ? row.map((slot, currentColumnIndex) => (currentColumnIndex === columnIndex ? value : slot))
+            : row
         )
       }
     }))
@@ -1674,6 +1874,136 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       nextRows[index] = { ...nextRows[index], [key]: value }
       return { ...prev, effectRows: nextRows }
     })
+  }
+
+  const pickMusicFiles = async (): Promise<string[]> => {
+    try {
+      const result = await window.electron.media.pickAudioFiles()
+      return Array.isArray(result) ? result : []
+    } catch (error) {
+      console.error('Erro ao selecionar músicas:', error)
+      return []
+    }
+  }
+
+  const addTracksToCategory = async (categoryId: MusicCategoryId) => {
+    const paths = await pickMusicFiles()
+    if (paths.length === 0) return
+    setTurnMonitor((prev) => {
+      const existing = prev.music.categories[categoryId]
+      const newTracks = paths.map((path, index) => {
+        const fileName = path.split(/[\\/]/).pop() || path
+        return {
+          id: `${Date.now()}-${categoryId}-${index}`,
+          name: fileName,
+          path
+        }
+      })
+      const shouldActivate = prev.music.activeTrackId === null && newTracks.length > 0
+      return {
+        ...prev,
+        music: {
+          ...prev.music,
+          categories: {
+            ...prev.music.categories,
+            [categoryId]: [...existing, ...newTracks]
+          },
+          activeCategoryId: shouldActivate ? categoryId : prev.music.activeCategoryId,
+          activeTrackId: shouldActivate ? newTracks[0].id : prev.music.activeTrackId
+        }
+      }
+    })
+  }
+
+  const removeTrack = (categoryId: MusicCategoryId, trackId: string) => {
+    setTurnMonitor((prev) => {
+      const nextTracks = prev.music.categories[categoryId].filter((track) => track.id !== trackId)
+      const isActive = prev.music.activeTrackId === trackId
+      return {
+        ...prev,
+        music: {
+          ...prev.music,
+          categories: {
+            ...prev.music.categories,
+            [categoryId]: nextTracks
+          },
+          activeTrackId: isActive ? null : prev.music.activeTrackId,
+          isPlaying: isActive ? false : prev.music.isPlaying
+        }
+      }
+    })
+  }
+
+  const setActiveTrack = (categoryId: MusicCategoryId, trackId: string) => {
+    setTurnMonitor((prev) => ({
+      ...prev,
+      music: {
+        ...prev.music,
+        activeCategoryId: categoryId,
+        activeTrackId: trackId,
+        isPlaying: true
+      }
+    }))
+  }
+
+  const getFirstAvailableTrack = (music: MusicState) => {
+    for (const category of MUSIC_CATEGORIES) {
+      const track = music.categories[category.id][0]
+      if (track) return { categoryId: category.id, track }
+    }
+    return null
+  }
+
+  const togglePlay = () => {
+    setTurnMonitor((prev) => {
+      if (prev.music.isPlaying) {
+        return {
+          ...prev,
+          music: {
+            ...prev.music,
+            isPlaying: false
+          }
+        }
+      }
+
+      const activeTracks = prev.music.categories[prev.music.activeCategoryId]
+      const activeTrack = activeTracks.find((track) => track.id === prev.music.activeTrackId)
+      if (activeTrack) {
+        return {
+          ...prev,
+          music: {
+            ...prev.music,
+            isPlaying: true
+          }
+        }
+      }
+
+      const fallback = getFirstAvailableTrack(prev.music)
+      if (!fallback) return prev
+      return {
+        ...prev,
+        music: {
+          ...prev.music,
+          activeCategoryId: fallback.categoryId,
+          activeTrackId: fallback.track.id,
+          isPlaying: true
+        }
+      }
+    })
+  }
+
+  const stopPlayback = () => {
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.currentTime = 0
+    }
+    setTurnMonitor((prev) => ({
+      ...prev,
+      music: {
+        ...prev.music,
+        isPlaying: false
+      }
+    }))
   }
 
   return (
@@ -2635,6 +2965,98 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           <DiceRoller />
         </article>
 
+        <article className="dashboard-card music">
+          <header>
+            <h3>Ambiência sonora</h3>
+          </header>
+          <div className="music-controls">
+            <div className="music-controls-main">
+              <button className="btn-secondary small" onClick={togglePlay}>
+                {turnMonitor.music.isPlaying ? 'Pausar' : 'Tocar'}
+              </button>
+              <button className="btn-secondary small" onClick={stopPlayback}>
+                Parar
+              </button>
+              <div className="music-volume">
+                <span>Volume</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={turnMonitor.music.volume}
+                  onChange={(event) =>
+                    setTurnMonitor((prev) => ({
+                      ...prev,
+                      music: {
+                        ...prev.music,
+                        volume: Number(event.target.value)
+                      }
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <label className="music-auto">
+              <input
+                type="checkbox"
+                checked={turnMonitor.music.autoMode}
+                onChange={(event) =>
+                  setTurnMonitor((prev) => ({
+                    ...prev,
+                    music: {
+                      ...prev.music,
+                      autoMode: event.target.checked
+                    }
+                  }))
+                }
+              />
+              <span>Trocar por voz (ex: "rola a iniciativa")</span>
+            </label>
+          </div>
+          <div className="music-grid">
+            {MUSIC_CATEGORIES.map((category) => {
+              const tracks = turnMonitor.music.categories[category.id]
+              return (
+                <div
+                  key={category.id}
+                  className={`music-card ${turnMonitor.music.activeCategoryId === category.id ? 'active' : ''}`}
+                >
+                  <div className="music-card-header">
+                    <h4>{category.label}</h4>
+                    <button className="btn-secondary small" onClick={() => addTracksToCategory(category.id)}>
+                      Adicionar
+                    </button>
+                  </div>
+                  <div className="music-track-list">
+                    {tracks.length === 0 ? (
+                      <p className="text-muted">Nenhuma música adicionada.</p>
+                    ) : (
+                      tracks.map((track) => (
+                        <div key={track.id} className="music-track">
+                          <button
+                            className={`music-track-button ${turnMonitor.music.activeTrackId === track.id ? 'active' : ''}`}
+                            onClick={() => setActiveTrack(category.id, track.id)}
+                          >
+                            {track.name}
+                          </button>
+                          <button
+                            className="music-track-remove"
+                            onClick={() => removeTrack(category.id, track.id)}
+                            aria-label="Remover música"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </article>
+
         <article className="dashboard-card turns">
           <header>
             <h3>Monitoramento de turnos</h3>
@@ -2657,17 +3079,31 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                   {TURN_PERIODS.map((period) => (
                     <div key={period.id} className="turns-period">
                       <span>{period.label}</span>
-                      <div className="turns-slot-row">
-                        {TURN_SLOTS.map((slot, index) => (
-                          <label key={slot} className="turns-slot">
-                            <input
-                              type="checkbox"
-                              checked={turnMonitor.periods[period.id][index]}
-                              onChange={(event) => updateTurnPeriod(period.id, index, event.target.checked)}
-                              aria-label={`${period.label} turno ${slot}`}
-                            />
-                            <span>{slot}</span>
-                          </label>
+                      <div className="turns-slot-grid">
+                        <div className="turns-slot-row turns-slot-header-row">
+                          <span className="turns-slot-index" aria-hidden="true" />
+                          {TURN_COLUMNS.map((column) => (
+                            <span key={`${period.id}-head-${column}`} className="turns-slot-head" aria-hidden="true">
+                              {column}
+                            </span>
+                          ))}
+                        </div>
+                        {TURN_ROWS.map((row, rowIndex) => (
+                          <div key={`${period.id}-row-${row}`} className="turns-slot-row">
+                            <span className="turns-slot-index">{row}</span>
+                            {TURN_COLUMNS.map((column, columnIndex) => (
+                              <label key={`${period.id}-${row}-${column}`} className="turns-slot">
+                                <input
+                                  type="checkbox"
+                                  checked={turnMonitor.periods[period.id][rowIndex][columnIndex]}
+                                  onChange={(event) =>
+                                    updateTurnPeriod(period.id, rowIndex, columnIndex, event.target.checked)
+                                  }
+                                  aria-label={`${period.label} linha ${row} coluna ${column}`}
+                                />
+                              </label>
+                            ))}
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -2726,72 +3162,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                   }
                 />
               </div>
-              <div className="turns-section">
-                <h4>Controle de PV</h4>
-                <div className="turns-table pv">
-                  <div className="turns-table-row turns-table-header">
-                    <span>Criatura</span>
-                    <span>PV máx</span>
-                    <span>PV atual</span>
-                  </div>
-                  {turnMonitor.pvRows.map((row, index) => (
-                    <div key={`pv-${index}`} className="turns-table-row">
-                      <input
-                        type="text"
-                        placeholder="Nome"
-                        value={row.name}
-                        onChange={(event) => updatePvRow(index, 'name', event.target.value)}
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        placeholder="0"
-                        value={row.max}
-                        onChange={(event) => updatePvRow(index, 'max', event.target.value)}
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        placeholder="0"
-                        value={row.current}
-                        onChange={(event) => updatePvRow(index, 'current', event.target.value)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="turns-section">
-                <h4>Tabela de monstros errantes</h4>
-                <div className="turns-table monsters">
-                  <div className="turns-table-row turns-table-header">
-                    <span>Grupo</span>
-                    <span>Área</span>
-                    <span>Notas</span>
-                  </div>
-                  {turnMonitor.monsterRows.map((row, index) => (
-                    <div key={`monster-${index}`} className="turns-table-row">
-                      <input
-                        type="text"
-                        placeholder="Grupo"
-                        value={row.group}
-                        onChange={(event) => updateMonsterRow(index, 'group', event.target.value)}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Área"
-                        value={row.area}
-                        onChange={(event) => updateMonsterRow(index, 'area', event.target.value)}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Notas"
-                        value={row.notes}
-                        onChange={(event) => updateMonsterRow(index, 'notes', event.target.value)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
+
             </div>
 
             <div className="turns-column">
@@ -2868,7 +3239,72 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                 </ul>
               </div>
 
-              
+                            <div className="turns-section">
+                <h4>Controle de PV</h4>
+                <div className="turns-table pv">
+                  <div className="turns-table-row turns-table-header">
+                    <span>Criatura</span>
+                    <span>PV máx</span>
+                    <span>PV atual</span>
+                  </div>
+                  {turnMonitor.pvRows.map((row, index) => (
+                    <div key={`pv-${index}`} className="turns-table-row">
+                      <input
+                        type="text"
+                        placeholder="Nome"
+                        value={row.name}
+                        onChange={(event) => updatePvRow(index, 'name', event.target.value)}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="0"
+                        value={row.max}
+                        onChange={(event) => updatePvRow(index, 'max', event.target.value)}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="0"
+                        value={row.current}
+                        onChange={(event) => updatePvRow(index, 'current', event.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="turns-section">
+                <h4>Tabela de monstros errantes</h4>
+                <div className="turns-table monsters">
+                  <div className="turns-table-row turns-table-header">
+                    <span>Grupo</span>
+                    <span>Área</span>
+                    <span>Notas</span>
+                  </div>
+                  {turnMonitor.monsterRows.map((row, index) => (
+                    <div key={`monster-${index}`} className="turns-table-row">
+                      <input
+                        type="text"
+                        placeholder="Grupo"
+                        value={row.group}
+                        onChange={(event) => updateMonsterRow(index, 'group', event.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Área"
+                        value={row.area}
+                        onChange={(event) => updateMonsterRow(index, 'area', event.target.value)}
+                      />
+                      <input
+                        type="text"
+                        placeholder="Notas"
+                        value={row.notes}
+                        onChange={(event) => updateMonsterRow(index, 'notes', event.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
 
               
             </div>

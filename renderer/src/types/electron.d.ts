@@ -172,6 +172,12 @@ interface ElectronAPI {
     getByCampaign: (campaignId: string) => Promise<TurnMonitor | null>
     save: (data: { campaignId: string; content: string }) => Promise<TurnMonitor>
   }
+
+  media: {
+    pickAudioFiles: () => Promise<string[]>
+    readAudioFile: (filePath: string) => Promise<{ data: ArrayBuffer | Uint8Array; mimeType: string }>
+    toFileUrl: (filePath: string) => string
+  }
 }
 
 declare global {
