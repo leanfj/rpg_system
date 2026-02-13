@@ -1,4 +1,4 @@
-import { dialog, ipcMain, IpcMainInvokeEvent } from 'electron'
+import { dialog, ipcMain, IpcMainInvokeEvent, shell } from 'electron'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { db } from '../services/database'
@@ -360,6 +360,12 @@ ipcMain.handle('transcripts:search', async (_event, query: string) => {
     take: 100,
     orderBy: { createdAt: 'desc' }
   })
+})
+
+// === Shell ===
+ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+  await shell.openExternal(url)
+  return true
 })
 
 console.log('✓ IPC handlers registrados')

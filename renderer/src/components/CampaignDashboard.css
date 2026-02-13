@@ -1327,3 +1327,13 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Botão abrir ficha externa */
+.action-icon-btn.sheet {
+  color: var(--primary);
+}
+
+.action-icon-btn.sheet:hover {
+  color: var(--primary);
+  background: rgba(99, 102, 241, 0.1);
+}

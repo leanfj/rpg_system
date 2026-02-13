@@ -207,6 +207,11 @@ const electronAPI = {
       const prefix = normalized.startsWith('/') ? '' : '/'
       return `file://${encodeURI(`${prefix}${normalized}`)}`
     }
+  },
+
+  // === Shell ===
+  shell: {
+    openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url)
   }
 }
 

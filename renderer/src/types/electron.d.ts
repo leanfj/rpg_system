@@ -66,6 +66,7 @@ interface PlayerCharacter {
   bonds?: string
   flaws?: string
   notes?: string
+  sheetUrl?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -177,6 +178,10 @@ interface ElectronAPI {
     pickAudioFiles: () => Promise<string[]>
     readAudioFile: (filePath: string) => Promise<{ data: ArrayBuffer | Uint8Array; mimeType: string }>
     toFileUrl: (filePath: string) => string
+  }
+
+  shell: {
+    openExternal: (url: string) => Promise<boolean>
   }
 }
 

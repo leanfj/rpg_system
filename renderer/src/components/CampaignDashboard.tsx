@@ -61,6 +61,7 @@ interface PlayerCharacter {
   bonds?: string
   flaws?: string
   notes?: string
+  sheetUrl?: string
 }
 
 interface NPC {
@@ -937,7 +938,8 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     ideals: '',
     bonds: '',
     flaws: '',
-    notes: ''
+    notes: '',
+    sheetUrl: ''
   })
   const [npcForm, setNpcForm] = useState({
     name: '',
@@ -1125,7 +1127,8 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       ideals: '',
       bonds: '',
       flaws: '',
-      notes: ''
+      notes: '',
+      sheetUrl: ''
     })
     setSavingThrowEntries(getDefaultSavingThrows())
     setSkillEntries(getDefaultSkills())
@@ -1216,7 +1219,8 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       ideals: player.ideals || '',
       bonds: player.bonds || '',
       flaws: player.flaws || '',
-      notes: player.notes || ''
+      notes: player.notes || '',
+      sheetUrl: player.sheetUrl || ''
     })
     setSavingThrowEntries(parseProficiencyEntries(player.savingThrows, getDefaultSavingThrows()))
     setSkillEntries(parseProficiencyEntries(player.skills, getDefaultSkills()))
@@ -1314,7 +1318,8 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       ideals: playerForm.ideals || undefined,
       bonds: playerForm.bonds || undefined,
       flaws: playerForm.flaws || undefined,
-      notes: playerForm.notes || undefined
+      notes: playerForm.notes || undefined,
+      sheetUrl: playerForm.sheetUrl || undefined
     }
 
     try {
@@ -2309,6 +2314,20 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                     <span>CAR {formatMod(getAbilityMod(player.charisma))}</span>
                   </div>
                   <div className="player-footer">
+                    {player.sheetUrl && (
+                      <button
+                        className="action-icon-btn sheet"
+                        onClick={() => window.electron.shell.openExternal(player.sheetUrl!)}
+                        aria-label="Ver ficha"
+                        title="Abrir ficha no navegador"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                          <polyline points="15 3 21 3 21 9" />
+                          <line x1="10" y1="14" x2="21" y2="3" />
+                        </svg>
+                      </button>
+                    )}
                     <button
                       className="action-icon-btn"
                       onClick={() => startEditPlayer(player)}
@@ -2772,6 +2791,15 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
 
                   <div className="player-form-section">
                     <h5>Anotações gerais</h5>
+                    <label className="field">
+                      <span>Link da ficha</span>
+                      <input
+                        type="url"
+                        placeholder="https://ddb.ac/characters/..."
+                        value={playerForm.sheetUrl}
+                        onChange={(event) => setPlayerForm({ ...playerForm, sheetUrl: event.target.value })}
+                      />
+                    </label>
                     <label className="field">
                       <span>Notas</span>
                       <textarea

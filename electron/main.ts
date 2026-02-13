@@ -63,6 +63,38 @@ function createWindow(): void {
 
 // Inicialização do app
 app.whenReady().then(() => {
+  // Remove headers que bloqueiam iframes em sites externos
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const url = details.url
+    const isOwnContent = url.startsWith('http://localhost:') || url.startsWith('file://')
+    
+    if (isOwnContent) {
+      // Para nosso conteúdo, usa CSP permissivo para iframes
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; " +
+            "frame-src *; " +
+            "img-src 'self' data: blob: https: http:; " +
+            "media-src 'self' data: blob: file:; " +
+            "connect-src 'self' ws: wss: http: https:; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:*; " +
+            "style-src 'self' 'unsafe-inline' http://localhost:*;"
+          ]
+        }
+      })
+    } else {
+      // Para sites externos, remove headers que bloqueiam iframe
+      const responseHeaders = { ...details.responseHeaders }
+      delete responseHeaders['x-frame-options']
+      delete responseHeaders['X-Frame-Options']
+      delete responseHeaders['content-security-policy']
+      delete responseHeaders['Content-Security-Policy']
+      callback({ responseHeaders })
+    }
+  })
+
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     if (permission === 'media') {
       callback(true)
