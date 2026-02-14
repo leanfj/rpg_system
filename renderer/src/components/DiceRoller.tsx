@@ -67,10 +67,38 @@ function DiceRoller() {
     return input?.value?.trim() ?? ''
   }
 
+  const getPercentileRoll = (results: DiceResults) => {
+    const rolls = results?.sets
+      ?.flatMap((set) => set.rolls ?? [])
+      .filter((roll) => typeof roll.value === 'number' && typeof roll.sides === 'number')
+
+    if (!rolls || rolls.length === 0) return null
+
+    const d100Roll = rolls.find((roll) => roll.sides === 100)
+    const d10Roll = rolls.find((roll) => roll.sides === 10)
+
+    if (!d100Roll || !d10Roll) return null
+
+    const tensValue = (d100Roll.value ?? 0) % 100
+    const onesValue = (d10Roll.value ?? 0) % 10
+    const combined = tensValue + onesValue
+    const percentile = combined === 0 ? 100 : combined
+    const detailText = `${String(tensValue).padStart(2, '0')}, ${onesValue}`
+
+    return { value: percentile, detail: detailText }
+  }
+
   const updateResultFromDiceBox = (results: DiceResults, preferD20Detail: boolean) => {
     const total = typeof results?.total === 'number' ? results.total : null
     let detailText: string | null = null
     let fallbackValues: number[] = []
+
+    const percentileRoll = getPercentileRoll(results)
+    if (percentileRoll) {
+      setDetail(percentileRoll.detail)
+      setResult(percentileRoll.value)
+      return
+    }
 
     if (preferD20Detail) {
       const d20Set = results?.sets?.find((set) => set.type === 'd20' && (set.rolls?.length ?? 0) >= 2)
@@ -118,9 +146,10 @@ function DiceRoller() {
       theme_material: 'plastic',
       theme_surface: 'taverntable',
       light_intensity: 1.1,
-      gravity_multiplier: 400,
-      baseScale: 110,
+      gravity_multiplier: 500,
+      baseScale: 115,
       strength: 2,
+      d4FaceDown: true
     })
 
     const roller = new AdvancedRoller({

@@ -110,6 +110,7 @@
 
 .dice {
   grid-column: span 7;
+  grid-row: span 2;
 }
 
 .notes {
@@ -559,11 +560,15 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
+  flex: 1;
+  min-height: 0;
 }
 
 .dice-viewport {
   width: 100%;
-  height: 320px;
+  height: auto;
+  flex: 1;
+  min-height: 360px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-light);
   background: radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 60%),
