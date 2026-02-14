@@ -65,7 +65,25 @@
       "electron/dist/**",
       "renderer/dist/**",
       "package.json",
-      "public/favicon/**"
+      "database/rpg_sessions.db",
+      "public/favicon/**",
+      "node_modules/**",
+      "node_modules/.prisma/**",
+      "node_modules/@prisma/client/runtime/**"
+    ],
+    "asarUnpack": [
+      "node_modules/.prisma/**",
+      "node_modules/@prisma/client/runtime/**"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/.prisma",
+        "to": "node_modules/.prisma"
+      },
+      {
+        "from": "node_modules/@prisma/client/runtime",
+        "to": "node_modules/@prisma/client/runtime"
+      }
     ],
     "directories": {
       "buildResources": "public"
