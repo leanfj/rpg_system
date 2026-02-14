@@ -1240,6 +1240,7 @@ interface InitiativeEntry {
   ac?: number
   sourceId?: string // ID do personagem ou índice do monstro
   monsterData?: SRDMonster // Dados do monstro para referência
+  side?: 'ally' | 'enemy'
 }
 
 function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProps) {
@@ -1354,6 +1355,14 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     ac?: number
   } | null>(null)
   const nextInitiativeId = useRef(1)
+  const [isCustomInitiativeOpen, setIsCustomInitiativeOpen] = useState(false)
+  const [customInitiativeForm, setCustomInitiativeForm] = useState({
+    name: '',
+    initiative: '',
+    hp: '',
+    ac: '',
+    side: 'enemy' as 'ally' | 'enemy'
+  })
 
   const getProficiencyBonusForLevel = (level: number) => {
     const normalizedLevel = Math.max(1, Number(level) || 1)
@@ -1997,6 +2006,44 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     setInitiativeInputValue('')
   }
 
+  const openCustomInitiative = () => {
+    setCustomInitiativeForm({
+      name: '',
+      initiative: '',
+      hp: '',
+      ac: '',
+      side: 'enemy'
+    })
+    setIsCustomInitiativeOpen(true)
+  }
+
+  const addCustomInitiative = () => {
+    const name = customInitiativeForm.name.trim()
+    const initiativeValue = parseInt(customInitiativeForm.initiative, 10)
+    const hpValue = parseInt(customInitiativeForm.hp, 10)
+    const acValue = parseInt(customInitiativeForm.ac, 10)
+
+    if (!name || isNaN(initiativeValue) || isNaN(hpValue) || isNaN(acValue)) return
+
+    const newEntry: InitiativeEntry = {
+      id: `initiative-${nextInitiativeId.current++}`,
+      name,
+      type: customInitiativeForm.side === 'ally' ? 'player' : 'monster',
+      initiative: initiativeValue,
+      hp: hpValue,
+      maxHp: hpValue,
+      ac: acValue,
+      side: customInitiativeForm.side
+    }
+
+    setInitiativeList((prev) => {
+      const updated = [...prev, newEntry]
+      return updated.sort((a, b) => b.initiative - a.initiative)
+    })
+
+    setIsCustomInitiativeOpen(false)
+  }
+
   const removeFromInitiative = (entryId: string) => {
     setInitiativeList((prev) => {
       const removedIndex = prev.findIndex((e) => e.id === entryId)
@@ -2039,13 +2086,22 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     )
   }
 
-  const isInInitiative = (type: 'player' | 'monster', sourceId?: string, name?: string) => {
+  const isInInitiative = (type: 'player' | 'monster', sourceId?: string) => {
     return initiativeList.some((entry) => {
       if (entry.type !== type) return false
       if (sourceId && entry.sourceId === sourceId) return true
-      if (name && entry.name === name) return true
       return false
     })
+  }
+
+  const getInitiativeTypeLabel = (entry: InitiativeEntry) => {
+    if (entry.side) return entry.side === 'ally' ? 'Aliado' : 'Inimigo'
+    return entry.type === 'player' ? 'Jogador' : 'Criatura'
+  }
+
+  const isMonsterInInitiative = (name?: string) => {
+    if (!name) return false
+    return initiativeList.some((entry) => entry.type === 'monster' && entry.name === name)
   }
 
   const getAbilityMod = (score: number) => Math.floor((score - 10) / 2)
@@ -2492,15 +2548,20 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
   }
 
   const setActiveTrack = (categoryId: MusicCategoryId, trackId: string) => {
-    setTurnMonitor((prev) => ({
-      ...prev,
-      music: {
-        ...prev.music,
-        activeCategoryId: categoryId,
-        activeTrackId: trackId,
-        isPlaying: true
+    setTurnMonitor((prev) => {
+      const isSameTrack =
+        prev.music.activeCategoryId === categoryId &&
+        prev.music.activeTrackId === trackId
+      return {
+        ...prev,
+        music: {
+          ...prev.music,
+          activeCategoryId: categoryId,
+          activeTrackId: trackId,
+          isPlaying: isSameTrack ? !prev.music.isPlaying : true
+        }
       }
-    }))
+    })
   }
 
   const getFirstAvailableTrack = (music: MusicState) => {
@@ -3570,6 +3631,17 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           <header>
             <h3>Tracker de Combate</h3>
             <div className="combat-tracker-header-actions">
+              <button
+                className="action-icon-btn initiative"
+                onClick={openCustomInitiative}
+                title="Adicionar criatura ou NPC"
+                aria-label="Adicionar criatura ou NPC"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14" />
+                  <path d="M5 12h14" />
+                </svg>
+              </button>
               {initiativeList.length > 0 && (
                 <button className="btn-secondary small danger" onClick={resetCombat}>
                   Encerrar Combate
@@ -3582,7 +3654,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
             <div className="combat-tracker-empty">
               <p>Nenhuma criatura na iniciativa.</p>
               <p className="text-muted">
-                Use os botões de espada nos cards de personagens ou monstros para adicionar participantes ao combate.
+                Use os botões de espada nos cards de personagens, nos monstros fixados ou na lista de criaturas para adicionar participantes ao combate.
               </p>
             </div>
           ) : (
@@ -3612,7 +3684,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                       <div className="combat-tracker-entry-name">
                         {entry.name}
                         <span className={`combat-tracker-entry-type ${entry.type}`}>
-                          {entry.type === 'player' ? 'Jogador' : 'Criatura'}
+                          {getInitiativeTypeLabel(entry)}
                         </span>
                       </div>
                       {(entry.hp !== undefined && entry.maxHp !== undefined) && (
@@ -3699,6 +3771,103 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                     className="btn-primary" 
                     onClick={addToInitiative}
                     disabled={initiativeInputValue === '' || isNaN(parseInt(initiativeInputValue, 10))}
+                  >
+                    Adicionar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isCustomInitiativeOpen && (
+          <div className="modal-overlay" onClick={() => setIsCustomInitiativeOpen(false)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h4>Adicionar Criatura ou NPC</h4>
+                <button className="modal-close" onClick={() => setIsCustomInitiativeOpen(false)}>
+                  ✕
+                </button>
+              </div>
+              <div className="initiative-modal-content">
+                <label className="field">
+                  <span>Nome</span>
+                  <input
+                    type="text"
+                    value={customInitiativeForm.name}
+                    onChange={(event) =>
+                      setCustomInitiativeForm((prev) => ({ ...prev, name: event.target.value }))
+                    }
+                    placeholder="Ex: Goblin arqueiro"
+                    autoFocus
+                  />
+                </label>
+                <label className="field">
+                  <span>Valor da Iniciativa</span>
+                  <input
+                    type="number"
+                    value={customInitiativeForm.initiative}
+                    onChange={(event) =>
+                      setCustomInitiativeForm((prev) => ({ ...prev, initiative: event.target.value }))
+                    }
+                    placeholder="Ex: 14"
+                  />
+                </label>
+                <label className="field">
+                  <span>Vida</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={customInitiativeForm.hp}
+                    onChange={(event) =>
+                      setCustomInitiativeForm((prev) => ({ ...prev, hp: event.target.value }))
+                    }
+                    placeholder="Ex: 22"
+                  />
+                </label>
+                <label className="field">
+                  <span>CA</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={customInitiativeForm.ac}
+                    onChange={(event) =>
+                      setCustomInitiativeForm((prev) => ({ ...prev, ac: event.target.value }))
+                    }
+                    placeholder="Ex: 13"
+                  />
+                </label>
+                <label className="field">
+                  <span>Lado</span>
+                  <select
+                    value={customInitiativeForm.side}
+                    onChange={(event) =>
+                      setCustomInitiativeForm((prev) => ({
+                        ...prev,
+                        side: event.target.value as 'ally' | 'enemy'
+                      }))
+                    }
+                  >
+                    <option value="ally">Aliado</option>
+                    <option value="enemy">Inimigo</option>
+                  </select>
+                </label>
+                <div className="initiative-modal-actions">
+                  <button className="btn-secondary" onClick={() => setIsCustomInitiativeOpen(false)}>
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={addCustomInitiative}
+                    disabled={
+                      customInitiativeForm.name.trim() === '' ||
+                      customInitiativeForm.initiative === '' ||
+                      customInitiativeForm.hp === '' ||
+                      customInitiativeForm.ac === '' ||
+                      isNaN(parseInt(customInitiativeForm.initiative, 10)) ||
+                      isNaN(parseInt(customInitiativeForm.hp, 10)) ||
+                      isNaN(parseInt(customInitiativeForm.ac, 10))
+                    }
                   >
                     Adicionar
                   </button>
@@ -4006,6 +4175,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                   <div className="turns-table-row turns-table-header">
                     <span>Criatura</span>
                     <span></span>
+                    <span></span>
                     <span>CA</span>
                     <span>PV máx</span>
                     <span>PV atual</span>
@@ -4054,6 +4224,29 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                           <svg viewBox="0 0 24 24" aria-hidden="true">
                             <circle cx="12" cy="12" r="10" />
                             <path d="M12 16v-4M12 8h.01" />
+                          </svg>
+                        </button>
+                        <button
+                          className="pv-add-initiative-btn"
+                          onClick={() => {
+                            if (!selectedMonster) return
+                            openAddToInitiative({
+                              type: 'monster',
+                              name: selectedMonster.name,
+                              monsterData: selectedMonster,
+                              hp: selectedMonster.hit_points,
+                              maxHp: selectedMonster.hit_points,
+                              ac: selectedMonster.armor_class[0]?.value
+                            })
+                          }}
+                          disabled={!selectedMonster}
+                          title={selectedMonster ? 'Adicionar à iniciativa' : 'Selecione uma criatura'}
+                          aria-label="Adicionar criatura à iniciativa"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
+                            <path d="M13 19l6-6 2 2-6 6-2-2z" />
+                            <path d="M19 13l2-2-6-6-2 2" />
                           </svg>
                         </button>
                         <span className="pv-ac-value">
@@ -4295,7 +4488,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
             <span className="monster-tooltip-drag-title">Estatísticas</span>
             <div className="monster-tooltip-header-actions">
               <button 
-                className={`monster-tooltip-initiative ${isInInitiative('monster', undefined, pinned.monster.name) ? 'in-combat' : ''}`}
+                className={`monster-tooltip-initiative ${isMonsterInInitiative(pinned.monster.name) ? 'in-combat' : ''}`}
                 onClick={() => openAddToInitiative({
                   type: 'monster',
                   name: pinned.monster.name,
@@ -4304,8 +4497,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                   maxHp: pinned.monster.hit_points,
                   ac: pinned.monster.armor_class[0]?.value
                 })}
-                title={isInInitiative('monster', undefined, pinned.monster.name) ? 'Já está no combate' : 'Adicionar à iniciativa'}
-                disabled={isInInitiative('monster', undefined, pinned.monster.name)}
+                title={isMonsterInInitiative(pinned.monster.name) ? 'Adicionar outro à iniciativa' : 'Adicionar à iniciativa'}
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
