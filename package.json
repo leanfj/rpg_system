@@ -65,6 +65,8 @@
       "electron/dist/**",
       "renderer/dist/**",
       "package.json",
+      "database/5e-SRD-Monsters.json",
+      "database/5e-SRD-Spells.json",
       "database/rpg_sessions.db",
       "public/favicon/**",
       "node_modules/**",
@@ -76,6 +78,14 @@
       "node_modules/@prisma/client/runtime/**"
     ],
     "extraResources": [
+      {
+        "from": "database/5e-SRD-Monsters.json",
+        "to": "database/5e-SRD-Monsters.json"
+      },
+      {
+        "from": "database/5e-SRD-Spells.json",
+        "to": "database/5e-SRD-Spells.json"
+      },
       {
         "from": "node_modules/.prisma",
         "to": "node_modules/.prisma"
