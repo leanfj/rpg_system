@@ -3975,6 +3975,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                 <div className="turns-table pv">
                   <div className="turns-table-row turns-table-header">
                     <span>Criatura</span>
+                    <span></span>
                     <span>CA</span>
                     <span>PV máx</span>
                     <span>PV atual</span>
@@ -3983,19 +3984,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                     const selectedMonster = srdMonsters.find((m) => m.name === row.name)
                     return (
                       <div key={`pv-${index}`} className="turns-table-row pv-row">
-                        <div 
-                          className="pv-creature-select-wrapper"
-                          onMouseEnter={(e) => {
-                            if (selectedMonster) {
-                              const newPopup = {
-                                id: nextMonsterPopupId.current++,
-                                monster: selectedMonster,
-                                position: { x: e.clientX + 15, y: e.clientY + 15 }
-                              }
-                              setPinnedMonsters(prev => [...prev, newPopup])
-                            }
-                          }}
-                        >
+                        <div className="pv-creature-select-wrapper">
                           <select
                             value={row.name}
                             onChange={(event) => {
@@ -4016,6 +4005,27 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                             ))}
                           </select>
                         </div>
+                        <button
+                          className="pv-view-stats-btn"
+                          onClick={(e) => {
+                            if (selectedMonster) {
+                              const newPopup = {
+                                id: nextMonsterPopupId.current++,
+                                monster: selectedMonster,
+                                position: { x: e.clientX + 15, y: e.clientY + 15 }
+                              }
+                              setPinnedMonsters(prev => [...prev, newPopup])
+                            }
+                          }}
+                          disabled={!selectedMonster}
+                          title={selectedMonster ? 'Ver estatísticas' : 'Selecione uma criatura'}
+                          aria-label="Ver estatísticas da criatura"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 16v-4M12 8h.01" />
+                          </svg>
+                        </button>
                         <span className="pv-ac-value">
                           {selectedMonster?.armor_class[0]?.value ?? '-'}
                         </span>

@@ -509,7 +509,7 @@
 }
 
 .turns-table.pv .turns-table-row {
-  grid-template-columns: 1.2fr 0.5fr 0.5fr 0.5fr;
+  grid-template-columns: 1.2fr 32px 0.5fr 0.5fr 0.5fr;
 }
 
 .turns-table.monsters .turns-table-row {
@@ -1342,6 +1342,43 @@
 .pv-creature-select-wrapper {
   position: relative;
   flex: 1;
+}
+
+/* Botão de visualização de stats da criatura */
+.pv-view-stats-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.pv-view-stats-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pv-view-stats-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.pv-view-stats-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .pv-creature-select-wrapper select {
