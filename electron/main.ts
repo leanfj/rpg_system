@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session } from 'electron'
+import { app, BrowserWindow, Menu, session, shell } from 'electron'
 import path from 'path'
 
 // Registra todos os IPC handlers
@@ -9,6 +9,7 @@ import { setMainWindow } from './services/audio'
 
 // Referência à janela principal
 let mainWindow: BrowserWindow | null = null
+let splashWindow: BrowserWindow | null = null
 
 // Verifica se estamos em desenvolvimento
 const isDev = !app.isPackaged
@@ -49,6 +50,10 @@ function createWindow(): void {
 
   // Mostra a janela quando estiver pronta
   mainWindow.once('ready-to-show', () => {
+    if (splashWindow) {
+      splashWindow.close()
+      splashWindow = null
+    }
     mainWindow?.show()
     // Configura a janela no serviço de áudio
     if (mainWindow) {
@@ -70,8 +75,89 @@ function createWindow(): void {
   })
 }
 
+function createSplashWindow(): BrowserWindow {
+  const splash = new BrowserWindow({
+    width: 420,
+    height: 280,
+    resizable: false,
+    frame: false,
+    transparent: false,
+    show: false,
+    alwaysOnTop: true,
+    center: true,
+    backgroundColor: '#141628',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  })
+
+  if (isDev) {
+    splash.loadURL('http://localhost:5173/splash.html')
+  } else {
+    splash.loadFile(path.join(app.getAppPath(), 'renderer', 'dist', 'splash.html'))
+  }
+
+  splash.once('ready-to-show', () => {
+    splash.show()
+  })
+
+  return splash
+}
+
+function buildAppMenu(): void {
+  const repoUrl = 'https://github.com/leanfj/rpg_system'
+  const macSubmenu: Electron.MenuItemConstructorOptions[] = [
+    { role: 'about' },
+    { type: 'separator' },
+    { role: 'services' },
+    { type: 'separator' },
+    { role: 'hide' },
+    { role: 'hideOthers' },
+    { role: 'unhide' },
+    { type: 'separator' },
+    { role: 'quit' }
+  ]
+  const menuTemplate: Electron.MenuItemConstructorOptions[] = [
+    ...(process.platform === 'darwin'
+      ? [
+          {
+            label: app.name,
+            submenu: macSubmenu
+          }
+        ]
+      : []),
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: 'Projeto no GitHub',
+          click: async () => {
+            await shell.openExternal(repoUrl)
+          }
+        },
+        {
+          label: 'Reportar problema',
+          click: async () => {
+            await shell.openExternal(`${repoUrl}/issues`)
+          }
+        }
+      ]
+    }
+  ]
+
+  const menu = Menu.buildFromTemplate(menuTemplate)
+  Menu.setApplicationMenu(menu)
+}
+
 // Inicialização do app
 app.whenReady().then(() => {
+  buildAppMenu()
+
   // Remove headers que bloqueiam iframes em sites externos
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const url = details.url
@@ -116,6 +202,7 @@ app.whenReady().then(() => {
     return permission === 'media'
   })
 
+  splashWindow = createSplashWindow()
   createWindow()
 
   app.on('activate', () => {

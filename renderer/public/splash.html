@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RPG Session Support</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Cinzel", "Palatino Linotype", Georgia, serif;
+        background: radial-gradient(circle at top, rgba(233, 69, 96, 0.2), transparent 55%),
+          linear-gradient(135deg, #141628, #1f2745);
+        color: #f8fafc;
+        display: grid;
+        place-items: center;
+        height: 100vh;
+      }
+
+      .splash {
+        text-align: center;
+        padding: 24px 28px;
+      }
+
+      .logo {
+        font-size: 1.4rem;
+        letter-spacing: 1px;
+        margin-bottom: 12px;
+      }
+
+      .subtitle {
+        font-family: "Inter", "Segoe UI", sans-serif;
+        font-size: 0.85rem;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        color: rgba(248, 250, 252, 0.7);
+        margin-bottom: 18px;
+      }
+
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(248, 250, 252, 0.2);
+        border-top-color: rgba(248, 250, 252, 0.9);
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+        margin: 0 auto;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="splash">
+      <div class="logo">RPG Session Support</div>
+      <div class="subtitle">Carregando...</div>
+      <div class="spinner" aria-label="Carregando" role="status"></div>
+    </div>
+  </body>
+</html>
