@@ -1526,3 +1526,289 @@
   background: var(--danger);
   color: white;
 }
+
+/* ========================================== */
+/* Combat Tracker / Initiative               */
+/* ========================================== */
+
+.combat-tracker {
+  grid-column: span 5;
+}
+
+.combat-tracker-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.combat-tracker-empty {
+  text-align: center;
+  padding: var(--spacing-lg);
+  color: var(--text-secondary);
+}
+
+.combat-tracker-empty p {
+  margin: var(--spacing-xs) 0;
+}
+
+.combat-tracker-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.combat-tracker-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: rgba(12, 15, 30, 0.6);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.combat-tracker-round {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.combat-tracker-round strong {
+  color: var(--primary);
+}
+
+.combat-tracker-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.combat-tracker-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background: rgba(12, 15, 30, 0.4);
+  border-radius: var(--radius-md);
+  border: 2px solid transparent;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.combat-tracker-entry.active {
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.15);
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+}
+
+.combat-tracker-entry.player {
+  border-left: 3px solid rgba(74, 222, 128, 0.6);
+}
+
+.combat-tracker-entry.monster {
+  border-left: 3px solid rgba(248, 113, 113, 0.6);
+}
+
+.combat-tracker-entry-initiative {
+  min-width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.initiative-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.combat-tracker-entry-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.combat-tracker-entry-name {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.combat-tracker-entry-type {
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.combat-tracker-entry-type.player {
+  background: rgba(74, 222, 128, 0.2);
+  color: rgba(74, 222, 128, 1);
+}
+
+.combat-tracker-entry-type.monster {
+  background: rgba(248, 113, 113, 0.2);
+  color: rgba(248, 113, 113, 1);
+}
+
+.combat-tracker-entry-stats {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.combat-tracker-hp {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.combat-tracker-hp-controls {
+  display: flex;
+  gap: 2px;
+}
+
+.combat-hp-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.combat-hp-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--primary);
+}
+
+.combat-tracker-ac {
+  color: var(--text-secondary);
+}
+
+.combat-tracker-entry-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+/* Botão de Iniciativa nos cards de personagem */
+.action-icon-btn.initiative {
+  color: var(--warning);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+.action-icon-btn.initiative:hover:not(:disabled) {
+  border-color: rgba(251, 191, 36, 0.8);
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.action-icon-btn.initiative.in-combat {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: rgba(74, 222, 128, 0.6);
+  color: rgba(74, 222, 128, 0.8);
+}
+
+/* Botão de Iniciativa nos monstros pinados */
+.monster-tooltip-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.monster-tooltip-initiative {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: rgba(251, 191, 36, 0.2);
+  color: var(--warning);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.monster-tooltip-initiative svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.monster-tooltip-initiative:hover:not(:disabled) {
+  background: rgba(251, 191, 36, 0.4);
+}
+
+.monster-tooltip-initiative.in-combat {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: rgba(74, 222, 128, 0.2);
+  color: rgba(74, 222, 128, 0.8);
+}
+
+/* Modal de Iniciativa */
+.modal.modal-small {
+  max-width: 360px;
+}
+
+.initiative-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+}
+
+.initiative-modal-content p {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin: 0;
+}
+
+.initiative-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+/* Botão de perigo */
+.btn-secondary.danger {
+  border-color: rgba(248, 113, 113, 0.4);
+  color: var(--error);
+}
+
+.btn-secondary.danger:hover {
+  border-color: rgba(248, 113, 113, 0.8);
+  background: rgba(248, 113, 113, 0.1);
+}
+
+@media (max-width: 1100px) {
+  .combat-tracker {
+    grid-column: span 12;
+  }
+}

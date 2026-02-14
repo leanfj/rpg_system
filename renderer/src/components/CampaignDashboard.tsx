@@ -1229,6 +1229,19 @@ interface ProficiencyEntry {
 
 type AbilityKey = 'strength' | 'dexterity' | 'constitution' | 'intelligence' | 'wisdom' | 'charisma'
 
+// Interface para tracker de iniciativa/combate
+interface InitiativeEntry {
+  id: string
+  name: string
+  type: 'player' | 'monster'
+  initiative: number
+  hp?: number
+  maxHp?: number
+  ac?: number
+  sourceId?: string // ID do personagem ou índice do monstro
+  monsterData?: SRDMonster // Dados do monstro para referência
+}
+
 function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProps) {
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
@@ -1324,6 +1337,22 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
   const nextMonsterPopupId = useRef(1)
   const [monsterImageCache, setMonsterImageCache] = useState<Record<string, string | null>>({})
   const [loadingMonsterImage, setLoadingMonsterImage] = useState(false)
+  
+  // Estados para o tracker de iniciativa/combate
+  const [initiativeList, setInitiativeList] = useState<InitiativeEntry[]>([])
+  const [currentTurnIndex, setCurrentTurnIndex] = useState<number>(0)
+  const [isAddingToInitiative, setIsAddingToInitiative] = useState(false)
+  const [initiativeInputValue, setInitiativeInputValue] = useState<string>('')
+  const [initiativeTargetEntry, setInitiativeTargetEntry] = useState<{
+    type: 'player' | 'monster'
+    name: string
+    sourceId?: string
+    monsterData?: SRDMonster
+    hp?: number
+    maxHp?: number
+    ac?: number
+  } | null>(null)
+  const nextInitiativeId = useRef(1)
 
   const getProficiencyBonusForLevel = (level: number) => {
     const normalizedLevel = Math.max(1, Number(level) || 1)
@@ -1923,6 +1952,99 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     } catch (error) {
       console.error('Erro ao remover inspiração:', error)
     }
+  }
+
+  // Funções para o tracker de iniciativa/combate
+  const openAddToInitiative = (entry: {
+    type: 'player' | 'monster'
+    name: string
+    sourceId?: string
+    monsterData?: SRDMonster
+    hp?: number
+    maxHp?: number
+    ac?: number
+  }) => {
+    setInitiativeTargetEntry(entry)
+    setInitiativeInputValue('')
+    setIsAddingToInitiative(true)
+  }
+
+  const addToInitiative = () => {
+    if (!initiativeTargetEntry) return
+    const initiativeValue = parseInt(initiativeInputValue, 10)
+    if (isNaN(initiativeValue)) return
+
+    const newEntry: InitiativeEntry = {
+      id: `initiative-${nextInitiativeId.current++}`,
+      name: initiativeTargetEntry.name,
+      type: initiativeTargetEntry.type,
+      initiative: initiativeValue,
+      hp: initiativeTargetEntry.hp,
+      maxHp: initiativeTargetEntry.maxHp,
+      ac: initiativeTargetEntry.ac,
+      sourceId: initiativeTargetEntry.sourceId,
+      monsterData: initiativeTargetEntry.monsterData
+    }
+
+    setInitiativeList((prev) => {
+      const updated = [...prev, newEntry]
+      return updated.sort((a, b) => b.initiative - a.initiative)
+    })
+
+    setIsAddingToInitiative(false)
+    setInitiativeTargetEntry(null)
+    setInitiativeInputValue('')
+  }
+
+  const removeFromInitiative = (entryId: string) => {
+    setInitiativeList((prev) => {
+      const removedIndex = prev.findIndex((e) => e.id === entryId)
+      const newList = prev.filter((e) => e.id !== entryId)
+      
+      // Ajusta o índice do turno atual se necessário
+      if (currentTurnIndex >= newList.length && newList.length > 0) {
+        setCurrentTurnIndex(0)
+      } else if (removedIndex < currentTurnIndex) {
+        setCurrentTurnIndex((prev) => Math.max(0, prev - 1))
+      }
+      
+      return newList
+    })
+  }
+
+  const nextTurn = () => {
+    if (initiativeList.length === 0) return
+    setCurrentTurnIndex((prev) => (prev + 1) % initiativeList.length)
+  }
+
+  const previousTurn = () => {
+    if (initiativeList.length === 0) return
+    setCurrentTurnIndex((prev) => (prev - 1 + initiativeList.length) % initiativeList.length)
+  }
+
+  const resetCombat = () => {
+    if (!confirm('Deseja encerrar o combate e limpar a lista de iniciativa?')) return
+    setInitiativeList([])
+    setCurrentTurnIndex(0)
+  }
+
+  const updateInitiativeHp = (entryId: string, delta: number) => {
+    setInitiativeList((prev) =>
+      prev.map((entry) => {
+        if (entry.id !== entryId || entry.hp === undefined || entry.maxHp === undefined) return entry
+        const newHp = Math.min(entry.maxHp, Math.max(0, entry.hp + delta))
+        return { ...entry, hp: newHp }
+      })
+    )
+  }
+
+  const isInInitiative = (type: 'player' | 'monster', sourceId?: string, name?: string) => {
+    return initiativeList.some((entry) => {
+      if (entry.type !== type) return false
+      if (sourceId && entry.sourceId === sourceId) return true
+      if (name && entry.name === name) return true
+      return false
+    })
   }
 
   const getAbilityMod = (score: number) => Math.floor((score - 10) / 2)
@@ -2747,6 +2869,26 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                       </button>
                     )}
                     <button
+                      className={`action-icon-btn initiative ${isInInitiative('player', player.id) ? 'in-combat' : ''}`}
+                      onClick={() => openAddToInitiative({
+                        type: 'player',
+                        name: player.name,
+                        sourceId: player.id,
+                        hp: player.currentHitPoints ?? player.hitPoints,
+                        maxHp: player.hitPoints,
+                        ac: player.armorClass
+                      })}
+                      aria-label="Adicionar à iniciativa"
+                      title={isInInitiative('player', player.id) ? 'Já está no combate' : 'Adicionar à iniciativa'}
+                      disabled={isInInitiative('player', player.id)}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
+                        <path d="M13 19l6-6 2 2-6 6-2-2z" />
+                        <path d="M19 13l2-2-6-6-2 2" />
+                      </svg>
+                    </button>
+                    <button
                       className="action-icon-btn"
                       onClick={() => startEditPlayer(player)}
                       aria-label="Editar personagem"
@@ -3411,6 +3553,149 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           <DiceRoller />
         </article>
 
+        {/* Tracker de Combate/Iniciativa */}
+        <article className="dashboard-card combat-tracker">
+          <header>
+            <h3>Tracker de Combate</h3>
+            <div className="combat-tracker-header-actions">
+              {initiativeList.length > 0 && (
+                <button className="btn-secondary small danger" onClick={resetCombat}>
+                  Encerrar Combate
+                </button>
+              )}
+            </div>
+          </header>
+          
+          {initiativeList.length === 0 ? (
+            <div className="combat-tracker-empty">
+              <p>Nenhuma criatura na iniciativa.</p>
+              <p className="text-muted">
+                Use os botões de espada nos cards de personagens ou monstros para adicionar participantes ao combate.
+              </p>
+            </div>
+          ) : (
+            <div className="combat-tracker-content">
+              <div className="combat-tracker-controls">
+                <button className="btn-secondary small" onClick={previousTurn} disabled={initiativeList.length === 0}>
+                  ← Anterior
+                </button>
+                <span className="combat-tracker-round">
+                  Turno de: <strong>{initiativeList[currentTurnIndex]?.name || '-'}</strong>
+                </span>
+                <button className="btn-secondary small" onClick={nextTurn} disabled={initiativeList.length === 0}>
+                  Próximo →
+                </button>
+              </div>
+              
+              <div className="combat-tracker-list">
+                {initiativeList.map((entry, index) => (
+                  <div
+                    key={entry.id}
+                    className={`combat-tracker-entry ${index === currentTurnIndex ? 'active' : ''} ${entry.type}`}
+                  >
+                    <div className="combat-tracker-entry-initiative">
+                      <span className="initiative-value">{entry.initiative}</span>
+                    </div>
+                    <div className="combat-tracker-entry-info">
+                      <div className="combat-tracker-entry-name">
+                        {entry.name}
+                        <span className={`combat-tracker-entry-type ${entry.type}`}>
+                          {entry.type === 'player' ? 'Jogador' : 'Criatura'}
+                        </span>
+                      </div>
+                      {(entry.hp !== undefined && entry.maxHp !== undefined) && (
+                        <div className="combat-tracker-entry-stats">
+                          <div className="combat-tracker-hp">
+                            <span>PV: {entry.hp}/{entry.maxHp}</span>
+                            <div className="combat-tracker-hp-controls">
+                              <button
+                                className="combat-hp-btn"
+                                onClick={() => updateInitiativeHp(entry.id, -1)}
+                                aria-label="Reduzir PV"
+                              >
+                                -
+                              </button>
+                              <button
+                                className="combat-hp-btn"
+                                onClick={() => updateInitiativeHp(entry.id, 1)}
+                                aria-label="Aumentar PV"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                          {entry.ac !== undefined && (
+                            <span className="combat-tracker-ac">CA: {entry.ac}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="combat-tracker-entry-actions">
+                      <button
+                        className="action-icon-btn danger"
+                        onClick={() => removeFromInitiative(entry.id)}
+                        title="Remover da iniciativa"
+                        aria-label="Remover da iniciativa"
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </article>
+
+        {/* Modal para adicionar à iniciativa */}
+        {isAddingToInitiative && initiativeTargetEntry && (
+          <div className="modal-overlay" onClick={() => setIsAddingToInitiative(false)}>
+            <div className="modal modal-small" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h4>Adicionar à Iniciativa</h4>
+                <button className="modal-close" onClick={() => setIsAddingToInitiative(false)}>
+                  ✕
+                </button>
+              </div>
+              <div className="initiative-modal-content">
+                <p>
+                  <strong>{initiativeTargetEntry.name}</strong>
+                  <span className={`combat-tracker-entry-type ${initiativeTargetEntry.type}`}>
+                    {initiativeTargetEntry.type === 'player' ? 'Jogador' : 'Criatura'}
+                  </span>
+                </p>
+                <label className="field">
+                  <span>Valor da Iniciativa</span>
+                  <input
+                    type="number"
+                    value={initiativeInputValue}
+                    onChange={(e) => setInitiativeInputValue(e.target.value)}
+                    placeholder="Ex: 15"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') addToInitiative()
+                    }}
+                  />
+                </label>
+                <div className="initiative-modal-actions">
+                  <button className="btn-secondary" onClick={() => setIsAddingToInitiative(false)}>
+                    Cancelar
+                  </button>
+                  <button 
+                    className="btn-primary" 
+                    onClick={addToInitiative}
+                    disabled={initiativeInputValue === '' || isNaN(parseInt(initiativeInputValue, 10))}
+                  >
+                    Adicionar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <article className="dashboard-card music">
           <header>
             <h3>Ambiência sonora</h3>
@@ -3968,13 +4253,34 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
             }}
           >
             <span className="monster-tooltip-drag-title">Estatísticas</span>
-            <button 
-              className="monster-tooltip-close"
-              onClick={() => setPinnedMonsters(prev => prev.filter(p => p.id !== pinned.id))}
-              title="Fechar"
-            >
-              &times;
-            </button>
+            <div className="monster-tooltip-header-actions">
+              <button 
+                className={`monster-tooltip-initiative ${isInInitiative('monster', undefined, pinned.monster.name) ? 'in-combat' : ''}`}
+                onClick={() => openAddToInitiative({
+                  type: 'monster',
+                  name: pinned.monster.name,
+                  monsterData: pinned.monster,
+                  hp: pinned.monster.hit_points,
+                  maxHp: pinned.monster.hit_points,
+                  ac: pinned.monster.armor_class[0]?.value
+                })}
+                title={isInInitiative('monster', undefined, pinned.monster.name) ? 'Já está no combate' : 'Adicionar à iniciativa'}
+                disabled={isInInitiative('monster', undefined, pinned.monster.name)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
+                  <path d="M13 19l6-6 2 2-6 6-2-2z" />
+                  <path d="M19 13l2-2-6-6-2 2" />
+                </svg>
+              </button>
+              <button 
+                className="monster-tooltip-close"
+                onClick={() => setPinnedMonsters(prev => prev.filter(p => p.id !== pinned.id))}
+                title="Fechar"
+              >
+                &times;
+              </button>
+            </div>
           </div>
           {pinned.monster.image && monsterImageCache[pinned.monster.image] && (
             <div className="monster-tooltip-image">
