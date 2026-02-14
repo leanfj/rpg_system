@@ -1337,6 +1337,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
   const nextMonsterPopupId = useRef(1)
   const [monsterImageCache, setMonsterImageCache] = useState<Record<string, string | null>>({})
   const [loadingMonsterImage, setLoadingMonsterImage] = useState(false)
+  const [dragMusicCategoryId, setDragMusicCategoryId] = useState<MusicCategoryId | null>(null)
   
   // Estados para o tracker de iniciativa/combate
   const [initiativeList, setInitiativeList] = useState<InitiativeEntry[]>([])
@@ -2431,8 +2432,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     }
   }
 
-  const addTracksToCategory = async (categoryId: MusicCategoryId) => {
-    const paths = await pickMusicFiles()
+  const appendTracksToCategory = (categoryId: MusicCategoryId, paths: string[]) => {
     if (paths.length === 0) return
     setTurnMonitor((prev) => {
       const existing = prev.music.categories[categoryId]
@@ -2458,6 +2458,18 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
         }
       }
     })
+  }
+
+  const addTracksToCategory = async (categoryId: MusicCategoryId) => {
+    const paths = await pickMusicFiles()
+    appendTracksToCategory(categoryId, paths)
+  }
+
+  const addTracksFromDrop = (categoryId: MusicCategoryId, files: FileList | File[]) => {
+    const paths = Array.from(files)
+      .map((file) => (file as File & { path?: string }).path)
+      .filter((path): path is string => Boolean(path))
+    appendTracksToCategory(categoryId, paths)
   }
 
   const removeTrack = (categoryId: MusicCategoryId, trackId: string) => {
@@ -3751,7 +3763,22 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
               return (
                 <div
                   key={category.id}
-                  className={`music-card ${turnMonitor.music.activeCategoryId === category.id ? 'active' : ''}`}
+                  className={`music-card ${turnMonitor.music.activeCategoryId === category.id ? 'active' : ''} ${dragMusicCategoryId === category.id ? 'is-drop-target' : ''}`}
+                  onDragOver={(event) => {
+                    event.preventDefault()
+                    event.dataTransfer.dropEffect = 'copy'
+                    setDragMusicCategoryId(category.id)
+                  }}
+                  onDragLeave={() => {
+                    setDragMusicCategoryId((prev) => (prev === category.id ? null : prev))
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault()
+                    setDragMusicCategoryId(null)
+                    if (event.dataTransfer?.files?.length) {
+                      addTracksFromDrop(category.id, event.dataTransfer.files)
+                    }
+                  }}
                 >
                   <div className="music-card-header">
                     <h4>{category.label}</h4>
@@ -3759,6 +3786,9 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                       Adicionar
                     </button>
                   </div>
+                  {dragMusicCategoryId === category.id && (
+                    <div className="music-drop-hint">Solte as musicas aqui</div>
+                  )}
                   <div className="music-track-list">
                     {tracks.length === 0 ? (
                       <p className="text-muted">Nenhuma música adicionada.</p>

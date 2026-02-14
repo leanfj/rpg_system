@@ -17,11 +17,18 @@ const isDev = !app.isPackaged
 app.disableHardwareAcceleration()
 
 function createWindow(): void {
+  const iconPath = path.join(
+    app.getAppPath(),
+    'public',
+    'favicon',
+    'web-app-manifest-512x512.png'
+  )
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -35,7 +42,7 @@ function createWindow(): void {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(path.join(__dirname, '../../renderer/dist/index.html'))
   }
 
   // Mostra a janela quando estiver pronta
