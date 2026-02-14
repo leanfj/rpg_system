@@ -4317,12 +4317,12 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
             </div>
           </div>
           <div className="monster-tooltip-abilities">
-            <span><strong>FOR:</strong> {pinned.monster.strength}</span>
-            <span><strong>DES:</strong> {pinned.monster.dexterity}</span>
-            <span><strong>CON:</strong> {pinned.monster.constitution}</span>
-            <span><strong>INT:</strong> {pinned.monster.intelligence}</span>
-            <span><strong>SAB:</strong> {pinned.monster.wisdom}</span>
-            <span><strong>CAR:</strong> {pinned.monster.charisma}</span>
+            <span><strong>FOR:</strong> {pinned.monster.strength} <span className="ability-mod-badge">{formatMod(getAbilityMod(pinned.monster.strength))}</span></span>
+            <span><strong>DES:</strong> {pinned.monster.dexterity} <span className="ability-mod-badge">{formatMod(getAbilityMod(pinned.monster.dexterity))}</span></span>
+            <span><strong>CON:</strong> {pinned.monster.constitution} <span className="ability-mod-badge">{formatMod(getAbilityMod(pinned.monster.constitution))}</span></span>
+            <span><strong>INT:</strong> {pinned.monster.intelligence} <span className="ability-mod-badge">{formatMod(getAbilityMod(pinned.monster.intelligence))}</span></span>
+            <span><strong>SAB:</strong> {pinned.monster.wisdom} <span className="ability-mod-badge">{formatMod(getAbilityMod(pinned.monster.wisdom))}</span></span>
+            <span><strong>CAR:</strong> {pinned.monster.charisma} <span className="ability-mod-badge">{formatMod(getAbilityMod(pinned.monster.charisma))}</span></span>
           </div>
           {pinned.monster.damage_immunities.length > 0 && (
             <div className="monster-tooltip-info">
