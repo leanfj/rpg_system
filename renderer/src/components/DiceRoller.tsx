@@ -46,6 +46,7 @@ function DiceRoller() {
   const rollerIdRef = useRef(`dice-roller-${Math.random().toString(36).slice(2)}`)
   const boxRef = useRef<DiceBox | null>(null)
   const rollerRef = useRef<AdvancedRoller | null>(null)
+  const diceSoundRef = useRef<HTMLAudioElement | null>(null)
   const [isReady, setIsReady] = useState(false)
   const [result, setResult] = useState<number | null>(null)
   const [detail, setDetail] = useState<string | null>(null)
@@ -123,6 +124,27 @@ function DiceRoller() {
     }
   }
 
+  const playDiceSound = () => {
+    const audio = diceSoundRef.current
+    if (!audio) return
+    audio.currentTime = 0
+    audio.play().catch(() => {
+      // Ignore playback errors to keep rolls responsive.
+    })
+  }
+
+  useEffect(() => {
+    const soundUrl = `${import.meta.env.BASE_URL}sounds/dice_roll.mp3`
+    const audio = new Audio(soundUrl)
+    audio.volume = 0.6
+    diceSoundRef.current = audio
+    return () => {
+      audio.pause()
+      audio.src = ''
+      diceSoundRef.current = null
+    }
+  }, [])
+
   useEffect(() => {
     let isActive = true
     const box = new DiceBox(`#${containerIdRef.current}`, {
@@ -149,7 +171,7 @@ function DiceRoller() {
       gravity_multiplier: 500,
       baseScale: 115,
       strength: 2,
-      d4FaceDown: true
+      delay: 600,
     })
 
     const roller = new AdvancedRoller({
@@ -164,6 +186,7 @@ function DiceRoller() {
         const parsedNotation = normalizeNotation(notation) || readNotationFromInput()
         console.log('Rolling dice with notation:', parsedNotation)
         if (!parsedNotation) return
+        playDiceSound()
         const results = await boxInstance.roll(parsedNotation)
         updateResultFromDiceBox(results, true)
       },
@@ -225,6 +248,7 @@ function DiceRoller() {
     if (!box) return
     setResult(null)
     setDetail(null)
+    playDiceSound()
     const results = await box.roll(notation) as DiceResults
     updateResultFromDiceBox(results, diceId === '2d20')
   }

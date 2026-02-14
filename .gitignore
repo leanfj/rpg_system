@@ -41,5 +41,5 @@ python-stt/.venv/
 
 # Audio files (temporary)
 *.wav
-*.mp3
+
 recordings/
