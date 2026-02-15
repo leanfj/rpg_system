@@ -2061,9 +2061,20 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     })
   }
 
+  const isEntryDead = (entry: InitiativeEntry) => entry.hp !== undefined && entry.hp <= 0
+
+  const getNextAliveIndex = (startIndex: number) => {
+    if (initiativeList.length === 0) return startIndex
+    for (let offset = 1; offset <= initiativeList.length; offset += 1) {
+      const nextIndex = (startIndex + offset) % initiativeList.length
+      if (!isEntryDead(initiativeList[nextIndex])) return nextIndex
+    }
+    return startIndex
+  }
+
   const nextTurn = () => {
     if (initiativeList.length === 0) return
-    setCurrentTurnIndex((prev) => (prev + 1) % initiativeList.length)
+    setCurrentTurnIndex((prev) => getNextAliveIndex(prev))
   }
 
   const previousTurn = () => {
@@ -3673,17 +3684,22 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
               </div>
               
               <div className="combat-tracker-list">
-                {initiativeList.map((entry, index) => (
-                  <div
-                    key={entry.id}
-                    className={`combat-tracker-entry ${index === currentTurnIndex ? 'active' : ''} ${entry.type}`}
-                  >
+                {initiativeList.map((entry, index) => {
+                  const isDead = isEntryDead(entry)
+                  return (
+                    <div
+                      key={entry.id}
+                      className={`combat-tracker-entry ${index === currentTurnIndex ? 'active' : ''} ${entry.type} ${isDead ? 'dead' : ''}`}
+                    >
                     <div className="combat-tracker-entry-initiative">
                       <span className="initiative-value">{entry.initiative}</span>
                     </div>
                     <div className="combat-tracker-entry-info">
                       <div className="combat-tracker-entry-name">
                         {entry.name}
+                        {isDead && (
+                          <span className="combat-tracker-entry-dead">Morto</span>
+                        )}
                         <span className={`combat-tracker-entry-type ${entry.type}`}>
                           {getInitiativeTypeLabel(entry)}
                         </span>
@@ -3728,7 +3744,8 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                       </button>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
