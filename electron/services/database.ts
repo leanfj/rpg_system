@@ -11,19 +11,31 @@ export function getDatabase(): PrismaClient {
     const isDev = !app.isPackaged
     const userDataDir = app.getPath('userData')
     const userDbPath = path.join(userDataDir, 'rpg_sessions.db')
-    const templateDbPath = isDev
-      ? path.join(app.getAppPath(), 'database', 'rpg_sessions.db')
-      : path.join(process.resourcesPath, 'database', 'rpg_sessions.db')
-    let dbPath = isDev ? templateDbPath : userDbPath
+    const templateDbCandidates = isDev
+      ? [
+          path.join(app.getAppPath(), 'database', 'rpg_sessions.db'),
+          path.join(app.getAppPath(), 'database', 'rpg_session.db')
+        ]
+      : [
+          path.join(process.resourcesPath, 'database', 'rpg_sessions.db'),
+          path.join(process.resourcesPath, 'database', 'rpg_session.db')
+        ]
+    const templateDbPath = templateDbCandidates.find((candidate) => fs.existsSync(candidate))
+    let dbPath = isDev ? (templateDbPath ?? userDbPath) : userDbPath
 
     if (isDev) {
       if (!fs.existsSync(dbPath) && fs.existsSync(userDbPath)) {
         dbPath = userDbPath
       }
-    } else if (!fs.existsSync(userDbPath)) {
-      fs.mkdirSync(userDataDir, { recursive: true })
-      if (fs.existsSync(templateDbPath)) {
-        fs.copyFileSync(templateDbPath, userDbPath)
+    } else {
+      const userDbExists = fs.existsSync(userDbPath)
+      const userDbHasData = userDbExists && fs.statSync(userDbPath).size > 0
+
+      if (!userDbHasData) {
+        fs.mkdirSync(userDataDir, { recursive: true })
+        if (templateDbPath) {
+          fs.copyFileSync(templateDbPath, userDbPath)
+        }
       }
     }
 
