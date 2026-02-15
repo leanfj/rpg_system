@@ -1737,8 +1737,8 @@
 }
 
 .combat-tracker-entry-initiative {
-  min-width: 44px;
-  height: 44px;
+  min-width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1751,6 +1751,21 @@
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--primary);
+}
+
+.initiative-input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.initiative-input:focus {
+  outline: none;
 }
 
 .combat-tracker-entry-info {

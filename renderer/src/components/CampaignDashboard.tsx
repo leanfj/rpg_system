@@ -2161,6 +2161,22 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     )
   }
 
+  const updateInitiativeValue = (entryId: string, value: number) => {
+    if (!Number.isFinite(value)) return
+    setInitiativeList((prev) => {
+      const currentId = prev[currentTurnIndex]?.id
+      const updated = prev.map((entry) =>
+        entry.id === entryId ? { ...entry, initiative: value } : entry
+      )
+      const sorted = [...updated].sort((a, b) => b.initiative - a.initiative)
+      if (currentId) {
+        const nextIndex = sorted.findIndex((entry) => entry.id === currentId)
+        if (nextIndex >= 0) setCurrentTurnIndex(nextIndex)
+      }
+      return sorted
+    })
+  }
+
   const updateInitiativeCondition = (entryId: string, condition: string) => {
     setInitiativeList((prev) =>
       prev.map((entry) => (entry.id === entryId ? { ...entry, condition } : entry))
@@ -3035,8 +3051,8 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                         type: 'player',
                         name: player.name,
                         sourceId: player.id,
-                        hp: player.currentHitPoints ?? player.hitPoints,
-                        maxHp: player.hitPoints,
+                        hp: (player.currentHitPoints ?? player.hitPoints) + (player.tempHitPoints ?? 0),
+                        maxHp: player.hitPoints + (player.tempHitPoints ?? 0),
                         ac: player.armorClass
                       })}
                       aria-label="Adicionar à iniciativa"
@@ -3768,7 +3784,18 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                       className={`combat-tracker-entry ${index === currentTurnIndex ? 'active' : ''} ${entry.type} ${isDead ? 'dead' : ''}`}
                     >
                     <div className="combat-tracker-entry-initiative">
-                      <span className="initiative-value">{entry.initiative}</span>
+                      <input
+                        className="initiative-input"
+                        type="number"
+                        value={entry.initiative}
+                        min={0}
+                        onChange={(event) => {
+                          const nextValue = Number(event.target.value)
+                          if (Number.isNaN(nextValue)) return
+                          updateInitiativeValue(entry.id, nextValue)
+                        }}
+                        aria-label={`Iniciativa de ${entry.name}`}
+                      />
                     </div>
                     <div className="combat-tracker-entry-info">
                       <div className="combat-tracker-entry-name">
@@ -4382,12 +4409,19 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                           className="pv-add-initiative-btn"
                           onClick={() => {
                             if (!selectedMonster) return
+                            const maxHpValue = Number(row.max)
+                            const currentHpValue = Number(row.current)
+                            const fallbackHp = selectedMonster.hit_points
+                            const resolvedMaxHp = Number.isFinite(maxHpValue) && maxHpValue > 0 ? maxHpValue : fallbackHp
+                            const resolvedCurrentHp = Number.isFinite(currentHpValue) && currentHpValue >= 0
+                              ? Math.min(currentHpValue, resolvedMaxHp)
+                              : resolvedMaxHp
                             openAddToInitiative({
                               type: 'monster',
                               name: selectedMonster.name,
                               monsterData: selectedMonster,
-                              hp: selectedMonster.hit_points,
-                              maxHp: selectedMonster.hit_points,
+                              hp: resolvedCurrentHp,
+                              maxHp: resolvedMaxHp,
                               ac: selectedMonster.armor_class[0]?.value
                             })
                           }}
