@@ -1690,6 +1690,34 @@
   border: 1px solid var(--border-light);
 }
 
+.combat-tracker-encounters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  align-items: center;
+  padding: var(--spacing-xs);
+  background: rgba(12, 15, 30, 0.4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+}
+
+.combat-tracker-encounters select {
+  min-width: 180px;
+  max-width: 240px;
+  padding: 4px 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+}
+
+.combat-tracker-encounters select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
 .combat-tracker-round {
   font-size: 0.9rem;
   color: var(--text-secondary);

@@ -483,6 +483,12 @@ type TurnMonitorEffectRow = {
   duration: string
 }
 
+type SavedEncounter = {
+  id: string
+  name: string
+  entries: InitiativeEntry[]
+}
+
 type MusicCategoryId = 'combate' | 'viagem' | 'taverna' | 'suspense' | 'exploracao' | 'cidade'
 
 type MusicTrack = {
@@ -512,6 +518,7 @@ type TurnMonitorData = {
   pvRows: TurnMonitorPVRow[]
   monsterRows: TurnMonitorMonsterRow[]
   effectRows: TurnMonitorEffectRow[]
+  encounters: SavedEncounter[]
   music: MusicState
 }
 
@@ -1151,6 +1158,7 @@ const createDefaultTurnMonitorData = (): TurnMonitorData => ({
   pvRows: Array.from({ length: PV_ROW_COUNT }, () => ({ name: '', max: '', current: '' })),
   monsterRows: Array.from({ length: MONSTER_ROW_COUNT }, () => ({ group: '', area: '', notes: '' })),
   effectRows: Array.from({ length: EFFECT_ROW_COUNT }, () => ({ effect: '', duration: '' })),
+  encounters: [],
   music: createDefaultMusicState()
 })
 
@@ -1209,6 +1217,17 @@ const normalizeTurnMonitorData = (value?: Partial<TurnMonitorData> | null): Turn
     volume: typeof incomingMusic.volume === 'number' ? incomingMusic.volume : defaultMusic.volume,
     autoMode: typeof incomingMusic.autoMode === 'boolean' ? incomingMusic.autoMode : defaultMusic.autoMode
   }
+  const normalizedEncounters = Array.isArray(value.encounters)
+    ? value.encounters
+        .filter((encounter): encounter is SavedEncounter =>
+          Boolean(encounter && encounter.id && encounter.name && Array.isArray(encounter.entries))
+        )
+        .map((encounter) => ({
+          id: encounter.id,
+          name: encounter.name,
+          entries: Array.isArray(encounter.entries) ? encounter.entries : []
+        }))
+    : []
 
   return {
     ...defaults,
@@ -1233,6 +1252,7 @@ const normalizeTurnMonitorData = (value?: Partial<TurnMonitorData> | null): Turn
       effect: value.effectRows?.[index]?.effect ?? '',
       duration: value.effectRows?.[index]?.duration ?? ''
     })),
+    encounters: normalizedEncounters,
     music: normalizedMusic
   }
 }
@@ -1383,6 +1403,10 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     name: string
     mode: 'add' | 'sub'
   } | null>(null)
+  const [selectedEncounterId, setSelectedEncounterId] = useState('')
+  const [isEncounterSaveOpen, setIsEncounterSaveOpen] = useState(false)
+  const [encounterNameInput, setEncounterNameInput] = useState('')
+  const [encounterSaveMode, setEncounterSaveMode] = useState<'create' | 'update'>('create')
   const [isCustomInitiativeOpen, setIsCustomInitiativeOpen] = useState(false)
   const [customInitiativeForm, setCustomInitiativeForm] = useState({
     name: '',
@@ -2025,6 +2049,64 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     setIsHpAdjustOpen(false)
     setHpAdjustTarget(null)
     setHpAdjustValue('')
+  }
+
+  const selectedEncounter = useMemo(
+    () => turnMonitor.encounters.find((encounter) => encounter.id === selectedEncounterId) || null,
+    [turnMonitor.encounters, selectedEncounterId]
+  )
+
+  const openCreateEncounter = () => {
+    setEncounterSaveMode('create')
+    setEncounterNameInput('')
+    setIsEncounterSaveOpen(true)
+  }
+
+  const openUpdateEncounter = () => {
+    if (!selectedEncounter) return
+    setEncounterSaveMode('update')
+    setEncounterNameInput(selectedEncounter.name)
+    setIsEncounterSaveOpen(true)
+  }
+
+  const saveEncounter = () => {
+    const name = encounterNameInput.trim()
+    if (!name || initiativeList.length === 0) return
+    if (encounterSaveMode === 'create') {
+      const id = `encounter-${Date.now()}`
+      const entries = initiativeList.map((entry) => ({ ...entry }))
+      setTurnMonitor((prev) => ({
+        ...prev,
+        encounters: [...prev.encounters, { id, name, entries }]
+      }))
+      setSelectedEncounterId(id)
+    } else if (selectedEncounter) {
+      const entries = initiativeList.map((entry) => ({ ...entry }))
+      setTurnMonitor((prev) => ({
+        ...prev,
+        encounters: prev.encounters.map((encounter) =>
+          encounter.id === selectedEncounter.id ? { ...encounter, name, entries } : encounter
+        )
+      }))
+    }
+    setIsEncounterSaveOpen(false)
+    setEncounterNameInput('')
+  }
+
+  const loadEncounter = () => {
+    if (!selectedEncounter) return
+    setInitiativeList(selectedEncounter.entries.map((entry) => ({ ...entry })))
+    setCurrentTurnIndex(0)
+  }
+
+  const removeEncounter = () => {
+    if (!selectedEncounter) return
+    if (!confirm(`Deseja remover o encontro "${selectedEncounter.name}"?`)) return
+    setTurnMonitor((prev) => ({
+      ...prev,
+      encounters: prev.encounters.filter((encounter) => encounter.id !== selectedEncounter.id)
+    }))
+    setSelectedEncounterId('')
   }
 
   const openAddToInitiative = (entry: {
@@ -3774,6 +3856,48 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                   Próximo →
                 </button>
               </div>
+              <div className="combat-tracker-encounters">
+                <select
+                  value={selectedEncounterId}
+                  onChange={(event) => setSelectedEncounterId(event.target.value)}
+                  aria-label="Selecionar encontro salvo"
+                >
+                  <option value="">Encontros salvos...</option>
+                  {turnMonitor.encounters.map((encounter) => (
+                    <option key={encounter.id} value={encounter.id}>
+                      {encounter.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn-secondary small"
+                  onClick={loadEncounter}
+                  disabled={!selectedEncounter}
+                >
+                  Carregar
+                </button>
+                <button
+                  className="btn-secondary small"
+                  onClick={openCreateEncounter}
+                  disabled={initiativeList.length === 0}
+                >
+                  Salvar
+                </button>
+                <button
+                  className="btn-secondary small"
+                  onClick={openUpdateEncounter}
+                  disabled={!selectedEncounter || initiativeList.length === 0}
+                >
+                  Atualizar
+                </button>
+                <button
+                  className="btn-secondary small danger"
+                  onClick={removeEncounter}
+                  disabled={!selectedEncounter}
+                >
+                  Remover
+                </button>
+              </div>
               
               <div className="combat-tracker-list">
                 {initiativeList.map((entry, index) => {
@@ -3908,6 +4032,46 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                     disabled={initiativeInputValue === '' || isNaN(parseInt(initiativeInputValue, 10))}
                   >
                     Adicionar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isEncounterSaveOpen && (
+          <div className="modal-overlay" onClick={() => setIsEncounterSaveOpen(false)}>
+            <div className="modal modal-small" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h4>{encounterSaveMode === 'create' ? 'Salvar encontro' : 'Atualizar encontro'}</h4>
+                <button className="modal-close" onClick={() => setIsEncounterSaveOpen(false)}>
+                  ✕
+                </button>
+              </div>
+              <div className="initiative-modal-content">
+                <label className="field">
+                  <span>Nome do encontro</span>
+                  <input
+                    type="text"
+                    value={encounterNameInput}
+                    onChange={(event) => setEncounterNameInput(event.target.value)}
+                    placeholder="Ex: Emboscada na ponte"
+                    autoFocus
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') saveEncounter()
+                    }}
+                  />
+                </label>
+                <div className="initiative-modal-actions">
+                  <button className="btn-secondary" onClick={() => setIsEncounterSaveOpen(false)}>
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={saveEncounter}
+                    disabled={encounterNameInput.trim() === '' || initiativeList.length === 0}
+                  >
+                    {encounterSaveMode === 'create' ? 'Salvar' : 'Atualizar'}
                   </button>
                 </div>
               </div>
