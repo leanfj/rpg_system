@@ -1806,6 +1806,27 @@
   color: var(--text-secondary);
 }
 
+.combat-tracker-condition {
+  margin-top: 2px;
+}
+
+.combat-tracker-condition select {
+  width: 100%;
+  max-width: 220px;
+  padding: 4px 8px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+}
+
+.combat-tracker-condition select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
 .combat-tracker-hp {
   display: flex;
   align-items: center;

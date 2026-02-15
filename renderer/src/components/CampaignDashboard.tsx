@@ -361,6 +361,24 @@ const actionNameTranslations: Record<string, string> = {
   'Psychic Drain': 'Drenar Psíquico'
 }
 
+const CONDITION_OPTIONS = [
+  'Cego',
+  'Encantado',
+  'Surdos',
+  'Exaustão',
+  'Com medo',
+  'Agarrado',
+  'Incapacitado',
+  'Invisível',
+  'Paralisado',
+  'Petrificado',
+  'Envenenado',
+  'Propenso',
+  'Contido',
+  'Estupefato',
+  'Inconsciente'
+]
+
 // Traduções de termos comuns em descrições
 const descriptionTerms: Array<[RegExp, string]> = [
   [/Melee Weapon Attack/gi, 'Ataque Corpo a Corpo com Arma'],
@@ -1236,6 +1254,7 @@ interface InitiativeEntry {
   name: string
   type: 'player' | 'monster'
   initiative: number
+  condition?: string
   hp?: number
   maxHp?: number
   ac?: number
@@ -1356,6 +1375,14 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     ac?: number
   } | null>(null)
   const nextInitiativeId = useRef(1)
+  const lastInitiativeCountRef = useRef(0)
+  const [isHpAdjustOpen, setIsHpAdjustOpen] = useState(false)
+  const [hpAdjustValue, setHpAdjustValue] = useState('')
+  const [hpAdjustTarget, setHpAdjustTarget] = useState<{
+    id: string
+    name: string
+    mode: 'add' | 'sub'
+  } | null>(null)
   const [isCustomInitiativeOpen, setIsCustomInitiativeOpen] = useState(false)
   const [customInitiativeForm, setCustomInitiativeForm] = useState({
     name: '',
@@ -1966,6 +1993,40 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
   }
 
   // Funções para o tracker de iniciativa/combate
+  function startCombatMusic() {
+    setTurnMonitor((prev) => {
+      const tracks = prev.music.categories.combate
+      if (tracks.length === 0) return prev
+      const nextTrack = tracks[Math.floor(Math.random() * tracks.length)]
+      return {
+        ...prev,
+        music: {
+          ...prev.music,
+          activeCategoryId: 'combate',
+          activeTrackId: nextTrack.id,
+          isPlaying: true
+        }
+      }
+    })
+  }
+
+  const openHpAdjust = (entry: InitiativeEntry, mode: 'add' | 'sub') => {
+    setHpAdjustTarget({ id: entry.id, name: entry.name, mode })
+    setHpAdjustValue('')
+    setIsHpAdjustOpen(true)
+  }
+
+  const applyHpAdjust = () => {
+    if (!hpAdjustTarget) return
+    const value = parseInt(hpAdjustValue, 10)
+    if (isNaN(value) || value <= 0) return
+    const delta = hpAdjustTarget.mode === 'sub' ? -value : value
+    updateInitiativeHp(hpAdjustTarget.id, delta)
+    setIsHpAdjustOpen(false)
+    setHpAdjustTarget(null)
+    setHpAdjustValue('')
+  }
+
   const openAddToInitiative = (entry: {
     type: 'player' | 'monster'
     name: string
@@ -1990,6 +2051,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       name: initiativeTargetEntry.name,
       type: initiativeTargetEntry.type,
       initiative: initiativeValue,
+      condition: '',
       hp: initiativeTargetEntry.hp,
       maxHp: initiativeTargetEntry.maxHp,
       ac: initiativeTargetEntry.ac,
@@ -2031,6 +2093,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       name,
       type: customInitiativeForm.side === 'ally' ? 'player' : 'monster',
       initiative: initiativeValue,
+      condition: '',
       hp: hpValue,
       maxHp: hpValue,
       ac: acValue,
@@ -2095,6 +2158,12 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
         const newHp = Math.min(entry.maxHp, Math.max(0, entry.hp + delta))
         return { ...entry, hp: newHp }
       })
+    )
+  }
+
+  const updateInitiativeCondition = (entryId: string, condition: string) => {
+    setInitiativeList((prev) =>
+      prev.map((entry) => (entry.id === entryId ? { ...entry, condition } : entry))
     )
   }
 
@@ -2296,6 +2365,13 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     if (!audioRef.current) return
     audioRef.current.volume = Math.min(1, Math.max(0, turnMonitor.music.volume))
   }, [turnMonitor.music.volume])
+
+  useEffect(() => {
+    if (lastInitiativeCountRef.current === 0 && initiativeList.length > 0) {
+      startCombatMusic()
+    }
+    lastInitiativeCountRef.current = initiativeList.length
+  }, [initiativeList.length])
 
   useEffect(() => {
     if (!audioRef.current) return
@@ -3711,14 +3787,14 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                             <div className="combat-tracker-hp-controls">
                               <button
                                 className="combat-hp-btn"
-                                onClick={() => updateInitiativeHp(entry.id, -1)}
+                                onClick={() => openHpAdjust(entry, 'sub')}
                                 aria-label="Reduzir PV"
                               >
                                 -
                               </button>
                               <button
                                 className="combat-hp-btn"
-                                onClick={() => updateInitiativeHp(entry.id, 1)}
+                                onClick={() => openHpAdjust(entry, 'add')}
                                 aria-label="Aumentar PV"
                               >
                                 +
@@ -3730,6 +3806,20 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                           )}
                         </div>
                       )}
+                      <div className="combat-tracker-condition">
+                        <select
+                          value={entry.condition ?? ''}
+                          onChange={(event) => updateInitiativeCondition(entry.id, event.target.value)}
+                          aria-label={`Condição de ${entry.name}`}
+                        >
+                          <option value="">Sem condição</option>
+                          {CONDITION_OPTIONS.map((condition) => (
+                            <option key={condition} value={condition}>
+                              {condition}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                     <div className="combat-tracker-entry-actions">
                       <button
@@ -3791,6 +3881,50 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                     disabled={initiativeInputValue === '' || isNaN(parseInt(initiativeInputValue, 10))}
                   >
                     Adicionar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isHpAdjustOpen && hpAdjustTarget && (
+          <div className="modal-overlay" onClick={() => setIsHpAdjustOpen(false)}>
+            <div className="modal modal-small" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <h4>{hpAdjustTarget.mode === 'sub' ? 'Subtrair PV' : 'Somar PV'}</h4>
+                <button className="modal-close" onClick={() => setIsHpAdjustOpen(false)}>
+                  ✕
+                </button>
+              </div>
+              <div className="initiative-modal-content">
+                <p>
+                  <strong>{hpAdjustTarget.name}</strong>
+                </p>
+                <label className="field">
+                  <span>Quantidade</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={hpAdjustValue}
+                    onChange={(event) => setHpAdjustValue(event.target.value)}
+                    placeholder="Ex: 4"
+                    autoFocus
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') applyHpAdjust()
+                    }}
+                  />
+                </label>
+                <div className="initiative-modal-actions">
+                  <button className="btn-secondary" onClick={() => setIsHpAdjustOpen(false)}>
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn-primary"
+                    onClick={applyHpAdjust}
+                    disabled={hpAdjustValue === '' || isNaN(parseInt(hpAdjustValue, 10)) || parseInt(hpAdjustValue, 10) <= 0}
+                  >
+                    Aplicar
                   </button>
                 </div>
               </div>
