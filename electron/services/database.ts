@@ -8,11 +8,17 @@ let prisma: PrismaClient | null = null
 
 export function getDatabase(): PrismaClient {
   if (!prisma) {
+    const isDev = !app.isPackaged
     const userDataDir = app.getPath('userData')
     const userDbPath = path.join(userDataDir, 'rpg_sessions.db')
     const templateDbPath = path.join(app.getAppPath(), 'database', 'rpg_sessions.db')
+    let dbPath = isDev ? templateDbPath : userDbPath
 
-    if (!fs.existsSync(userDbPath)) {
+    if (isDev) {
+      if (!fs.existsSync(dbPath) && fs.existsSync(userDbPath)) {
+        dbPath = userDbPath
+      }
+    } else if (!fs.existsSync(userDbPath)) {
       fs.mkdirSync(userDataDir, { recursive: true })
       if (fs.existsSync(templateDbPath)) {
         fs.copyFileSync(templateDbPath, userDbPath)
@@ -22,7 +28,7 @@ export function getDatabase(): PrismaClient {
     prisma = new PrismaClient({
       datasources: {
         db: {
-          url: `file:${userDbPath}`
+          url: `file:${dbPath}`
         }
       },
       log: process.env.NODE_ENV === 'development' 
