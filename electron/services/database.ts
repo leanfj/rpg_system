@@ -11,7 +11,9 @@ export function getDatabase(): PrismaClient {
     const isDev = !app.isPackaged
     const userDataDir = app.getPath('userData')
     const userDbPath = path.join(userDataDir, 'rpg_sessions.db')
-    const templateDbPath = path.join(app.getAppPath(), 'database', 'rpg_sessions.db')
+    const templateDbPath = isDev
+      ? path.join(app.getAppPath(), 'database', 'rpg_sessions.db')
+      : path.join(process.resourcesPath, 'database', 'rpg_sessions.db')
     let dbPath = isDev ? templateDbPath : userDbPath
 
     if (isDev) {

@@ -79,6 +79,10 @@
     ],
     "extraResources": [
       {
+        "from": "database/rpg_sessions.db",
+        "to": "database/rpg_sessions.db"
+      },
+      {
         "from": "database/5e-SRD-Monsters.json",
         "to": "database/5e-SRD-Monsters.json"
       },
