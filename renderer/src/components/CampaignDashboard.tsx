@@ -18,6 +18,7 @@ interface Session {
 interface CampaignDashboardProps {
   campaignId: string
   onStartSession: () => void
+  onOpenSessionNotes: () => void
 }
 
 interface PlayerCharacter {
@@ -1243,7 +1244,7 @@ interface InitiativeEntry {
   side?: 'ally' | 'enemy'
 }
 
-function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProps) {
+function CampaignDashboard({ campaignId, onStartSession, onOpenSessionNotes }: CampaignDashboardProps) {
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [sessions, setSessions] = useState<Session[]>([])
   const [players, setPlayers] = useState<PlayerCharacter[]>([])
@@ -2636,6 +2637,9 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           <div className="hero-actions">
             <button className="btn-primary" onClick={onStartSession}>
               Iniciar sessão
+            </button>
+            <button className="btn-secondary" onClick={onOpenSessionNotes}>
+              Notas da sessão
             </button>
             <button className="btn-secondary" onClick={loadSessions}>
               Atualizar dados
@@ -4401,6 +4405,18 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
               
             </div>
           </div>
+        </article>
+
+        <article className="dashboard-card session-notes-card">
+          <header>
+            <h3>Notas da sessão</h3>
+          </header>
+          <p className="text-muted">
+            Registre o que aconteceu e mantenha a linha narrativa sempre atualizada.
+          </p>
+          <button className="btn-primary small" onClick={onOpenSessionNotes}>
+            Abrir notas
+          </button>
         </article>
 
         <article className="dashboard-card notes">

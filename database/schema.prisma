@@ -29,6 +29,7 @@ model Campaign {
   masterNotes MasterNote[]
   turnMonitor TurnMonitor?
   playerCharacters PlayerCharacter[]
+  sessionNotes SessionNote[]
   
   @@map("campaigns")
 }
@@ -96,6 +97,32 @@ model Session {
   events      Event[]
   
   @@map("sessions")
+}
+
+/// Notas detalhadas de uma sessao de jogo
+model SessionNote {
+  id         String   @id @default(cuid())
+  campaignId String
+  title      String
+  sessionDate DateTime @default(now())
+  recap      String?
+  summary    String?
+  locations  String?
+  npcs       String?
+  combats    String?
+  moments    String?
+  decisions  String?
+  rewards    String?
+  hooks      String?
+  gmNotes    String?
+  endTime    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("session_notes")
 }
 
 /// Pedaço de transcrição (texto reconhecido pelo Whisper)

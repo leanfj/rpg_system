@@ -13,6 +13,26 @@ interface Session {
   endedAt?: Date
 }
 
+interface SessionNote {
+  id: string
+  campaignId: string
+  title: string
+  sessionDate: Date
+  recap?: string
+  summary?: string
+  locations?: string
+  npcs?: string
+  combats?: string
+  moments?: string
+  decisions?: string
+  rewards?: string
+  hooks?: string
+  gmNotes?: string
+  endTime?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
 interface SessionWithCampaign extends Session {
   campaign?: Campaign
 }
@@ -174,6 +194,13 @@ interface ElectronAPI {
     stop: (sessionId: string) => Promise<boolean>
     delete: (sessionId: string) => Promise<boolean>
     getByCapaign: (campaignId: string) => Promise<Session[]>
+  }
+
+  sessionNotes: {
+    getByCampaign: (campaignId: string) => Promise<SessionNote[]>
+    create: (data: Omit<SessionNote, 'id' | 'createdAt' | 'updatedAt'>) => Promise<SessionNote>
+    update: (id: string, data: Omit<SessionNote, 'id' | 'campaignId' | 'createdAt' | 'updatedAt'>) => Promise<SessionNote>
+    delete: (id: string) => Promise<boolean>
   }
   
   audio: {

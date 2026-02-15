@@ -96,6 +96,10 @@
   grid-column: span 4;
 }
 
+.session-notes-card {
+  grid-column: span 4;
+}
+
 .npcs {
   grid-column: span 4;
 }
@@ -1305,6 +1309,7 @@
   .players,
   .quests,
   .dice,
+  .session-notes-card,
   .notes,
   .next {
     grid-column: span 12;

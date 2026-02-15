@@ -74,6 +74,90 @@ ipcMain.handle('sessions:getByCampaign', async (_event, campaignId: string) => {
   })
 })
 
+// === Notas de sessao ===
+ipcMain.handle('sessionNotes:getByCampaign', async (_event, campaignId: string) => {
+  return await db.sessionNote.findMany({
+    where: { campaignId },
+    orderBy: { sessionDate: 'desc' }
+  })
+})
+
+ipcMain.handle('sessionNotes:create', async (_event, data: {
+  campaignId: string
+  title: string
+  sessionDate?: Date
+  recap?: string
+  summary?: string
+  locations?: string
+  npcs?: string
+  combats?: string
+  moments?: string
+  decisions?: string
+  rewards?: string
+  hooks?: string
+  gmNotes?: string
+  endTime?: string
+}) => {
+  return await db.sessionNote.create({
+    data: {
+      campaignId: data.campaignId,
+      title: data.title,
+      sessionDate: data.sessionDate ? new Date(data.sessionDate) : new Date(),
+      recap: data.recap,
+      summary: data.summary,
+      locations: data.locations,
+      npcs: data.npcs,
+      combats: data.combats,
+      moments: data.moments,
+      decisions: data.decisions,
+      rewards: data.rewards,
+      hooks: data.hooks,
+      gmNotes: data.gmNotes,
+      endTime: data.endTime
+    }
+  })
+})
+
+ipcMain.handle('sessionNotes:update', async (_event, id: string, data: {
+  title: string
+  sessionDate?: Date
+  recap?: string
+  summary?: string
+  locations?: string
+  npcs?: string
+  combats?: string
+  moments?: string
+  decisions?: string
+  rewards?: string
+  hooks?: string
+  gmNotes?: string
+  endTime?: string
+}) => {
+  return await db.sessionNote.update({
+    where: { id },
+    data: {
+      title: data.title,
+      sessionDate: data.sessionDate ? new Date(data.sessionDate) : undefined,
+      recap: data.recap,
+      summary: data.summary,
+      locations: data.locations,
+      npcs: data.npcs,
+      combats: data.combats,
+      moments: data.moments,
+      decisions: data.decisions,
+      rewards: data.rewards,
+      hooks: data.hooks,
+      gmNotes: data.gmNotes,
+      endTime: data.endTime
+    }
+  })
+})
+
+ipcMain.handle('sessionNotes:delete', async (_event, id: string) => {
+  await db.sessionNote.delete({ where: { id } })
+  return true
+})
+
 // === Personagens jogadores ===
 ipcMain.handle('players:getByCampaign', async (_event, campaignId: string) => {
   return await db.playerCharacter.findMany({

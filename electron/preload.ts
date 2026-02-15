@@ -26,6 +26,43 @@ const electronAPI = {
     delete: (sessionId: string) => ipcRenderer.invoke('sessions:delete', sessionId),
     getByCapaign: (campaignId: string) => ipcRenderer.invoke('sessions:getByCampaign', campaignId)
   },
+
+  // === Notas de sessao ===
+  sessionNotes: {
+    getByCampaign: (campaignId: string) => ipcRenderer.invoke('sessionNotes:getByCampaign', campaignId),
+    create: (data: {
+      campaignId: string
+      title: string
+      sessionDate?: Date
+      recap?: string
+      summary?: string
+      locations?: string
+      npcs?: string
+      combats?: string
+      moments?: string
+      decisions?: string
+      rewards?: string
+      hooks?: string
+      gmNotes?: string
+      endTime?: string
+    }) => ipcRenderer.invoke('sessionNotes:create', data),
+    update: (id: string, data: {
+      title: string
+      sessionDate?: Date
+      recap?: string
+      summary?: string
+      locations?: string
+      npcs?: string
+      combats?: string
+      moments?: string
+      decisions?: string
+      rewards?: string
+      hooks?: string
+      gmNotes?: string
+      endTime?: string
+    }) => ipcRenderer.invoke('sessionNotes:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('sessionNotes:delete', id)
+  },
   
   // === Áudio ===
   audio: {

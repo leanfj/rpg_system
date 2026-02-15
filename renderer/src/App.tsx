@@ -4,9 +4,10 @@ import SessionView from './components/SessionView'
 import CampaignList from './components/CampaignList'
 import RecordedSessions from './components/RecordedSessions'
 import CampaignDashboard from './components/CampaignDashboard'
+import SessionNotes from './components/SessionNotes'
 import './styles/App.css'
 
-type View = 'campaigns' | 'dashboard' | 'session' | 'recordings'
+type View = 'campaigns' | 'dashboard' | 'session' | 'recordings' | 'session-notes'
 
 function App() {
   const [currentView, setView] = useState<View>('campaigns')
@@ -49,6 +50,7 @@ function App() {
           <CampaignDashboard
             campaignId={activeCampaignId}
             onStartSession={() => setView('session')}
+            onOpenSessionNotes={() => setView('session-notes')}
           />
         )}
         
@@ -65,6 +67,10 @@ function App() {
 
         {currentView === 'recordings' && (
           <RecordedSessions initialSessionId={lastRecordedSessionId} />
+        )}
+
+        {currentView === 'session-notes' && activeCampaignId && (
+          <SessionNotes campaignId={activeCampaignId} />
         )}
       </main>
     </div>

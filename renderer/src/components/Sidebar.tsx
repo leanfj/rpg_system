@@ -1,8 +1,8 @@
 import './Sidebar.css'
 
 interface SidebarProps {
-  currentView: 'campaigns' | 'dashboard' | 'session' | 'recordings'
-  onNavigate: (view: 'campaigns' | 'dashboard' | 'session' | 'recordings') => void
+  currentView: 'campaigns' | 'dashboard' | 'session' | 'recordings' | 'session-notes'
+  onNavigate: (view: 'campaigns' | 'dashboard' | 'session' | 'recordings' | 'session-notes') => void
   hasActiveSession: boolean
   hasActiveCampaign: boolean
 }
@@ -48,6 +48,15 @@ function Sidebar({ currentView, onNavigate, hasActiveSession, hasActiveCampaign 
         >
           <span className="nav-icon">🗂️</span>
           <span className="nav-label">Sessões Gravadas</span>
+        </button>
+
+        <button
+          className={`nav-item ${currentView === 'session-notes' ? 'active' : ''}`}
+          onClick={() => onNavigate('session-notes')}
+          disabled={!hasActiveCampaign}
+        >
+          <span className="nav-icon">📝</span>
+          <span className="nav-label">Notas da Sessão</span>
         </button>
       </nav>
       
