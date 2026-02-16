@@ -70,6 +70,108 @@
   font-weight: 600;
 }
 
+.xp-report header {
+  align-items: flex-start;
+}
+
+.xp-report-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+.xp-report-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.xp-report-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.xp-report-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.xp-report-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.xp-report-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  max-height: 240px;
+  overflow-y: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  padding: var(--spacing-sm);
+  background: rgba(10, 14, 30, 0.35);
+}
+
+.xp-report-empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: var(--spacing-sm);
+}
+
+.xp-report-row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.xp-report-row input[type="number"] {
+  width: 90px;
+}
+
+.xp-report-row.is-muted {
+  opacity: 0.6;
+}
+
+.xp-report-player {
+  display: flex;
+  flex-direction: column;
+}
+
+.xp-report-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.xp-report-share {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.xp-report-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.xp-report-summary-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -104,12 +206,16 @@
   grid-column: span 4;
 }
 
-.quests {
+.xp-report {
   grid-column: span 5;
 }
 
-.dice {
+.quests {
   grid-column: span 7;
+}
+
+.dice {
+  grid-column: span 5;
   grid-row: span 11;
 }
 
@@ -1654,7 +1760,9 @@
 /* ========================================== */
 
 .combat-tracker {
-  grid-column: span 5;
+  grid-column: span 7;
+  grid-row: span 11;
+
 }
 
 .combat-tracker-header-actions {

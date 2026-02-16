@@ -17,6 +17,7 @@ import PlayerPanel from './PlayerPanel'
 import QuestPanel from './QuestPanel'
 import TimelinePanel from './TimelinePanel'
 import TurnsPanel from './TurnsPanel'
+import XpReportPanel from './XpReportPanel'
 import './CampaignDashboard.css'
 
 interface Campaign {
@@ -1901,6 +1902,28 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     }
   }
 
+  const applyXpAwards = async (awards: Array<{ id: string; amount: number }>) => {
+    const updates = awards.filter((award) => award.amount > 0)
+    if (updates.length === 0) return
+
+    const playerById = new Map(players.map((player) => [player.id, player]))
+
+    try {
+      await Promise.all(
+        updates.map((award) => {
+          const player = playerById.get(award.id)
+          if (!player) return Promise.resolve()
+          const currentXp = player.experience || 0
+          const payload = buildPlayerUpdatePayload(player, { experience: currentXp + award.amount })
+          return window.electron.players.update(award.id, payload)
+        })
+      )
+      loadPlayers()
+    } catch (error) {
+      console.error('Erro ao aplicar XP:', error)
+    }
+  }
+
   const handleDeleteQuest = async (questId: string) => {
     if (!confirm('Deseja remover esta quest?')) return
     try {
@@ -2279,6 +2302,8 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           savingThrowAbilityMap={savingThrowAbilityMap}
           skillAbilityMap={skillAbilityMap}
         />
+
+        <XpReportPanel players={players} onApplyXp={applyXpAwards} />
 
         <QuestPanel
           quests={quests}
