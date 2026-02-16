@@ -112,6 +112,17 @@ interface TurnMonitor {
   updatedAt: Date
 }
 
+interface DmShieldOption {
+  id: string
+  title: string
+  content: string
+}
+
+interface DmShieldState {
+  isOpen: boolean
+  alwaysOnTop: boolean
+}
+
 interface SRDMonsterAction {
   name: string
   desc: string
@@ -219,6 +230,14 @@ interface ElectronAPI {
   turnMonitor: {
     getByCampaign: (campaignId: string) => Promise<TurnMonitor | null>
     save: (data: { campaignId: string; content: string }) => Promise<TurnMonitor>
+  }
+
+  dmShield: {
+    open: () => Promise<boolean>
+    close: () => Promise<boolean>
+    getOptions: () => Promise<DmShieldOption[]>
+    getState: () => Promise<DmShieldState>
+    setAlwaysOnTop: (enabled: boolean) => Promise<boolean>
   }
 
   media: {

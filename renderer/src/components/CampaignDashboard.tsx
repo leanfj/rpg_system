@@ -2238,6 +2238,10 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     return new Date(value).toLocaleDateString('pt-BR')
   }
 
+  const handleOpenDmShield = useCallback(() => {
+    void window.electron.dmShield.open()
+  }, [])
+
   const turnMonitorStatusLabel =
     turnMonitorStatus === 'saving'
       ? 'Salvando...'
@@ -2255,6 +2259,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
         formatDate={formatDate}
         onStartSession={onStartSession}
         onReload={loadSessions}
+        onOpenDmShield={handleOpenDmShield}
       />
 
       <section className="dashboard-grid">

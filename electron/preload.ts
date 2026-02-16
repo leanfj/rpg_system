@@ -197,6 +197,15 @@ const electronAPI = {
     getByCampaign: (campaignId: string) => ipcRenderer.invoke('turnMonitor:getByCampaign', campaignId),
     save: (data: { campaignId: string; content: string }) => ipcRenderer.invoke('turnMonitor:save', data)
   },
+  
+    // === Escudo do Mestre ===
+    dmShield: {
+      open: () => ipcRenderer.invoke('dmShield:open'),
+      close: () => ipcRenderer.invoke('dmShield:close'),
+      getOptions: () => ipcRenderer.invoke('dmShield:getOptions'),
+      getState: () => ipcRenderer.invoke('dmShield:getState'),
+      setAlwaysOnTop: (enabled: boolean) => ipcRenderer.invoke('dmShield:setAlwaysOnTop', enabled)
+    },
 
   // === Midia ===
   media: {

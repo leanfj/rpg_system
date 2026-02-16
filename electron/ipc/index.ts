@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, IpcMainInvokeEvent, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, IpcMainInvokeEvent, shell } from 'electron'
 import { promises as fs } from 'fs'
 import path from 'path'
 import { db } from '../services/database'
@@ -21,6 +21,79 @@ import {
 
 // Tipos auxiliares
 type Handler<T = unknown, R = unknown> = (event: IpcMainInvokeEvent, ...args: T[]) => Promise<R>
+
+const dmShieldFiles = [
+  'escudo_mestre_1.md',
+  'escudo_mestre_2.md',
+  'escudo_mestre_3.md'
+]
+
+let dmShieldWindow: BrowserWindow | null = null
+let dmShieldAlwaysOnTop = false
+
+const resolveDmShieldFile = async (fileName: string): Promise<string | null> => {
+  const basePaths = [app.getAppPath(), process.resourcesPath]
+
+  for (const basePath of basePaths) {
+    const candidate = path.join(basePath, fileName)
+    try {
+      await fs.access(candidate)
+      return candidate
+    } catch {
+      // Continue searching next base path.
+    }
+  }
+
+  return null
+}
+
+const parseDmShieldTitle = (content: string, fallback: string): string => {
+  const match = content.match(/^#\s+(.+)$/m)
+  if (match) {
+    return match[1].trim()
+  }
+  return fallback
+}
+
+const createDmShieldWindow = (): BrowserWindow => {
+  const shieldWindow = new BrowserWindow({
+    width: 560,
+    height: 720,
+    minWidth: 420,
+    minHeight: 540,
+    title: 'Escudo do Mestre',
+    backgroundColor: '#13172b',
+    autoHideMenuBar: true,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, '..', 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  })
+
+  const isDev = !app.isPackaged
+
+  if (isDev) {
+    shieldWindow.loadURL('http://localhost:5173/#/dm-shield')
+  } else {
+    shieldWindow.loadFile(path.join(app.getAppPath(), 'renderer', 'dist', 'index.html'), {
+      hash: '/dm-shield'
+    })
+  }
+
+  shieldWindow.setAlwaysOnTop(dmShieldAlwaysOnTop)
+
+  shieldWindow.once('ready-to-show', () => {
+    shieldWindow.show()
+  })
+
+  shieldWindow.on('closed', () => {
+    dmShieldWindow = null
+  })
+
+  return shieldWindow
+}
 
 // === Campanhas ===
 ipcMain.handle('campaigns:getAll', async () => {
@@ -360,6 +433,64 @@ ipcMain.handle('transcripts:search', async (_event, query: string) => {
     take: 100,
     orderBy: { createdAt: 'desc' }
   })
+})
+
+// === Escudo do Mestre ===
+ipcMain.handle('dmShield:open', async () => {
+  if (!dmShieldWindow) {
+    dmShieldWindow = createDmShieldWindow()
+  } else {
+    dmShieldWindow.focus()
+  }
+  return true
+})
+
+ipcMain.handle('dmShield:close', async () => {
+  if (dmShieldWindow) {
+    dmShieldWindow.close()
+  }
+  return true
+})
+
+ipcMain.handle('dmShield:getState', async () => {
+  return {
+    isOpen: Boolean(dmShieldWindow),
+    alwaysOnTop: dmShieldWindow?.isAlwaysOnTop() ?? dmShieldAlwaysOnTop
+  }
+})
+
+ipcMain.handle('dmShield:setAlwaysOnTop', async (_event, enabled: boolean) => {
+  dmShieldAlwaysOnTop = enabled
+  if (dmShieldWindow) {
+    dmShieldWindow.setAlwaysOnTop(enabled)
+  }
+  return dmShieldAlwaysOnTop
+})
+
+ipcMain.handle('dmShield:getOptions', async () => {
+  const options = [] as Array<{ id: string; title: string; content: string }>
+
+  for (const fileName of dmShieldFiles) {
+    const resolvedPath = await resolveDmShieldFile(fileName)
+    if (!resolvedPath) {
+      continue
+    }
+
+    try {
+      const content = await fs.readFile(resolvedPath, 'utf-8')
+      const fallbackTitle = fileName.replace(/_/g, ' ').replace(/\.md$/, '')
+      const title = parseDmShieldTitle(content, fallbackTitle)
+      options.push({
+        id: fileName,
+        title,
+        content
+      })
+    } catch (error) {
+      console.error(`Erro ao ler ${fileName}:`, error)
+    }
+  }
+
+  return options
 })
 
 // === Shell ===

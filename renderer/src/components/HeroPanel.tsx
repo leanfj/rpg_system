@@ -11,21 +11,25 @@ type HeroPanelProps = {
   formatDate: (value?: Date | null) => string
   onStartSession: () => void
   onReload: () => void
+  onOpenDmShield: () => void
 }
 
-function HeroPanel({ campaignName, stats, formatDate, onStartSession, onReload }: HeroPanelProps) {
+function HeroPanel({ campaignName, stats, formatDate, onStartSession, onReload, onOpenDmShield }: HeroPanelProps) {
   return (
     <section className="dashboard-hero">
       <div className="hero-content">
         <p className="hero-kicker">Campanha ativa</p>
         <h2>{campaignName || 'Campanha sem nome'}</h2>
-        <p className="hero-subtitle">Comece a próxima sessão e acompanhe o progresso da história.</p>
+            <p className="hero-subtitle">Comece a próxima sessão e acompanhe o progresso da história.</p>
         <div className="hero-actions">
           <button className="btn-primary" onClick={onStartSession}>
-            Iniciar sessão
+                Iniciar sessão
           </button>
           <button className="btn-secondary" onClick={onReload}>
             Atualizar dados
+          </button>
+          <button className="btn-secondary" onClick={onOpenDmShield}>
+            Escudo do mestre
           </button>
         </div>
       </div>

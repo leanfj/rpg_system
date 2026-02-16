@@ -4,11 +4,18 @@ import SessionView from './components/SessionView'
 import CampaignList from './components/CampaignList'
 import RecordedSessions from './components/RecordedSessions'
 import CampaignDashboard from './components/CampaignDashboard'
+import DmShieldWindow from './components/DmShieldWindow'
 import './styles/App.css'
 
 type View = 'campaigns' | 'dashboard' | 'session' | 'recordings'
 
 function App() {
+  const isDmShieldWindow = window.location.hash.startsWith('#/dm-shield')
+
+  if (isDmShieldWindow) {
+    return <DmShieldWindow />
+  }
+
   const [currentView, setView] = useState<View>('campaigns')
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null)
