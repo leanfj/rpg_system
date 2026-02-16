@@ -489,7 +489,7 @@ type SavedEncounter = {
   entries: InitiativeEntry[]
 }
 
-type MusicCategoryId = 'combate' | 'viagem' | 'taverna' | 'suspense' | 'exploracao' | 'cidade'
+type MusicCategoryId = 'combate' | 'viagem' | 'taverna' | 'suspense' | 'exploracao' | 'cidade' | 'descanso'
 
 type MusicTrack = {
   id: string
@@ -545,7 +545,8 @@ const MUSIC_CATEGORIES: Array<{ id: MusicCategoryId; label: string }> = [
   { id: 'taverna', label: 'Taverna' },
   { id: 'suspense', label: 'Suspense' },
   { id: 'exploracao', label: 'Exploração' },
-  { id: 'cidade', label: 'Cidade' }
+  { id: 'cidade', label: 'Cidade' },
+  { id: 'descanso', label: 'Descanso' }
 ]
 
 const MUSIC_KEYWORDS: Record<MusicCategoryId, string[]> = {
@@ -554,7 +555,8 @@ const MUSIC_KEYWORDS: Record<MusicCategoryId, string[]> = {
   taverna: ['taverna', 'estalagem', 'bebida', 'caneca'],
   suspense: ['suspeito', 'estranho', 'sombras', 'medo', 'cuidado'],
   exploracao: ['explorar', 'exploração', 'caverna', 'ruínas', 'vasculhar'],
-  cidade: ['cidade', 'mercado', 'rua', 'guarda', 'praça']
+  cidade: ['cidade', 'mercado', 'rua', 'guarda', 'praça'],
+  descanso: ['descanso', 'repouso', 'acampamento', 'sono', 'parada']
 }
 
 const TURN_PERIODS = [
@@ -1130,7 +1132,8 @@ const createDefaultMusicState = (): MusicState => ({
     taverna: [],
     suspense: [],
     exploracao: [],
-    cidade: []
+    cidade: [],
+    descanso: []
   },
   activeCategoryId: 'exploracao',
   activeTrackId: null,
@@ -1200,7 +1203,7 @@ const normalizeTurnMonitorData = (value?: Partial<TurnMonitorData> | null): Turn
     return acc
   }, {} as Record<TurnPeriodId, boolean[][]>)
 
-  const incomingMusic = value.music ?? {}
+  const incomingMusic: Partial<MusicState> = value.music ?? {}
   const defaultMusic = defaults.music
   const normalizedMusic: MusicState = {
     categories: {
@@ -1209,7 +1212,8 @@ const normalizeTurnMonitorData = (value?: Partial<TurnMonitorData> | null): Turn
       taverna: incomingMusic.categories?.taverna ?? defaultMusic.categories.taverna,
       suspense: incomingMusic.categories?.suspense ?? defaultMusic.categories.suspense,
       exploracao: incomingMusic.categories?.exploracao ?? defaultMusic.categories.exploracao,
-      cidade: incomingMusic.categories?.cidade ?? defaultMusic.categories.cidade
+      cidade: incomingMusic.categories?.cidade ?? defaultMusic.categories.cidade,
+      descanso: incomingMusic.categories?.descanso ?? defaultMusic.categories.descanso
     },
     activeCategoryId: incomingMusic.activeCategoryId ?? defaultMusic.activeCategoryId,
     activeTrackId: incomingMusic.activeTrackId ?? defaultMusic.activeTrackId,
@@ -2123,6 +2127,19 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     setIsAddingToInitiative(true)
   }
 
+  const openMonsterStats = (monster: SRDMonster, event?: { clientX: number; clientY: number }) => {
+    const fallback = { x: 120, y: 120 }
+    const position = event
+      ? { x: event.clientX + 15, y: event.clientY + 15 }
+      : fallback
+    const newPopup = {
+      id: nextMonsterPopupId.current++,
+      monster,
+      position
+    }
+    setPinnedMonsters((prev) => [...prev, newPopup])
+  }
+
   const addToInitiative = () => {
     if (!initiativeTargetEntry) return
     const initiativeValue = parseInt(initiativeInputValue, 10)
@@ -2206,6 +2223,49 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     })
   }
 
+  const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+  const getDuplicateName = (baseName: string, existing: InitiativeEntry[]) => {
+    const normalizedBase = baseName.replace(/\s*\(\d+\)\s*$/, '')
+    const pattern = new RegExp(`^${escapeRegex(normalizedBase)}\\s*(?:\\((\\d+)\\))?$`)
+    let maxIndex = 1
+    let hasMatch = false
+
+    existing.forEach((entry) => {
+      const match = entry.name.match(pattern)
+      if (!match) return
+      hasMatch = true
+      if (!match[1]) return
+      const parsed = Number(match[1])
+      if (Number.isFinite(parsed)) {
+        maxIndex = Math.max(maxIndex, parsed)
+      }
+    })
+
+    const nextIndex = hasMatch ? Math.max(2, maxIndex + 1) : 2
+    return `${normalizedBase} (${nextIndex})`
+  }
+
+  const duplicateInitiativeEntry = (entry: InitiativeEntry) => {
+    setInitiativeList((prev) => {
+      const currentId = prev[currentTurnIndex]?.id
+      const resolvedHp = entry.maxHp ?? entry.hp
+      const newEntry: InitiativeEntry = {
+        ...entry,
+        id: `initiative-${nextInitiativeId.current++}`,
+        name: getDuplicateName(entry.name, prev),
+        hp: resolvedHp,
+        condition: ''
+      }
+      const updated = [...prev, newEntry].sort((a, b) => b.initiative - a.initiative)
+      if (currentId) {
+        const nextIndex = updated.findIndex((item) => item.id === currentId)
+        if (nextIndex >= 0) setCurrentTurnIndex(nextIndex)
+      }
+      return updated
+    })
+  }
+
   const isEntryDead = (entry: InitiativeEntry) => entry.hp !== undefined && entry.hp <= 0
 
   const getNextAliveIndex = (startIndex: number) => {
@@ -2231,6 +2291,19 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     if (!confirm('Deseja encerrar o combate e limpar a lista de iniciativa?')) return
     setInitiativeList([])
     setCurrentTurnIndex(0)
+    setTurnMonitor((prev) => {
+      const travelTracks = prev.music.categories.viagem
+      const nextTrack = travelTracks[0]
+      return {
+        ...prev,
+        music: {
+          ...prev.music,
+          activeCategoryId: 'viagem',
+          activeTrackId: nextTrack ? nextTrack.id : null,
+          isPlaying: Boolean(nextTrack)
+        }
+      }
+    })
   }
 
   const updateInitiativeHp = (entryId: string, delta: number) => {
@@ -3902,6 +3975,9 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
               <div className="combat-tracker-list">
                 {initiativeList.map((entry, index) => {
                   const isDead = isEntryDead(entry)
+                  const monsterSource = entry.monsterData || srdMonsters.find((monster) => monster.name === entry.name)
+                  const canOpenStats = Boolean(monsterSource)
+                  const canDuplicate = Boolean(entry.side) || entry.type === 'monster'
                   return (
                     <div
                       key={entry.id}
@@ -3973,6 +4049,32 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                       </div>
                     </div>
                     <div className="combat-tracker-entry-actions">
+                      {canOpenStats && monsterSource && (
+                        <button
+                          className="action-icon-btn"
+                          onClick={(event) => openMonsterStats(monsterSource, event)}
+                          title="Abrir estatisticas"
+                          aria-label="Abrir estatisticas"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 16v-4M12 8h.01" />
+                          </svg>
+                        </button>
+                      )}
+                      {canDuplicate && (
+                        <button
+                          className="action-icon-btn"
+                          onClick={() => duplicateInitiativeEntry(entry)}
+                          title="Duplicar entrada"
+                          aria-label="Duplicar entrada"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M8 8h10v10H8z" />
+                            <path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </svg>
+                        </button>
+                      )}
                       <button
                         className="action-icon-btn danger"
                         onClick={() => removeFromInitiative(entry.id)}
@@ -4552,12 +4654,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
                           className="pv-view-stats-btn"
                           onClick={(e) => {
                             if (selectedMonster) {
-                              const newPopup = {
-                                id: nextMonsterPopupId.current++,
-                                monster: selectedMonster,
-                                position: { x: e.clientX + 15, y: e.clientY + 15 }
-                              }
-                              setPinnedMonsters(prev => [...prev, newPopup])
+                              openMonsterStats(selectedMonster, e)
                             }
                           }}
                           disabled={!selectedMonster}
