@@ -1,6 +1,6 @@
 {
   "name": "rpg-session-support",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sistema de suporte para mesas de RPG com transcrição de áudio em tempo real",
   "main": "electron/dist/main.js",
   "author": {
