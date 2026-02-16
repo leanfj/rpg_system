@@ -13,6 +13,7 @@ function App() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null)
   const [lastRecordedSessionId, setLastRecordedSessionId] = useState<string | null>(null)
+  const [isSidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const handleOpenCampaign = (campaignId: string) => {
     setActiveCampaignId(campaignId)
@@ -38,6 +39,8 @@ function App() {
         onNavigate={setView}
         hasActiveSession={activeSessionId !== null}
         hasActiveCampaign={activeCampaignId !== null}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
       />
       
       <main className="main-content">
