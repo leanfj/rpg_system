@@ -1,5 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import DiceRoller from './DiceRoller'
+import type { MouseEvent as ReactMouseEvent } from 'react'
+import { useCombatTracker, InitiativeEntry } from '../hooks/useCombatTracker'
+import { useMusicController } from '../hooks/useMusicController'
+import { useCampaignData } from '../hooks/useCampaignData'
+import { useTurnMonitorControls } from '../hooks/useTurnMonitorControls'
+import CombatModals from './CombatModals'
+import CombatTrackerPanel from './CombatTrackerPanel'
+import DiceRollerPanel from './DiceRollerPanel'
+import HeroPanel from './HeroPanel'
+import MasterNotesPanel from './MasterNotesPanel'
+import MusicPanel from './MusicPanel'
+import NpcPanel from './NpcPanel'
+import NextSessionChecklist from './NextSessionChecklist'
+import PinnedMonsterWindows from './PinnedMonsterWindows'
+import PlayerPanel from './PlayerPanel'
+import QuestPanel from './QuestPanel'
+import TimelinePanel from './TimelinePanel'
+import TurnsPanel from './TurnsPanel'
 import './CampaignDashboard.css'
 
 interface Campaign {
@@ -486,7 +503,7 @@ type TurnMonitorEffectRow = {
 type SavedEncounter = {
   id: string
   name: string
-  entries: InitiativeEntry[]
+  entries: InitiativeEntry<SRDMonster>[]
 }
 
 type MusicCategoryId = 'combate' | 'viagem' | 'taverna' | 'suspense' | 'exploracao' | 'cidade' | 'descanso'
@@ -1272,30 +1289,8 @@ interface ProficiencyEntry {
 
 type AbilityKey = 'strength' | 'dexterity' | 'constitution' | 'intelligence' | 'wisdom' | 'charisma'
 
-// Interface para tracker de iniciativa/combate
-interface InitiativeEntry {
-  id: string
-  name: string
-  type: 'player' | 'monster'
-  initiative: number
-  condition?: string
-  hp?: number
-  maxHp?: number
-  ac?: number
-  sourceId?: string // ID do personagem ou índice do monstro
-  monsterData?: SRDMonster // Dados do monstro para referência
-  side?: 'ally' | 'enemy'
-}
-
 function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProps) {
-  const [campaign, setCampaign] = useState<Campaign | null>(null)
-  const [sessions, setSessions] = useState<Session[]>([])
-  const [players, setPlayers] = useState<PlayerCharacter[]>([])
-  const [npcs, setNpcs] = useState<NPC[]>([])
-  const [quests, setQuests] = useState<Quest[]>([])
-  const [masterNote, setMasterNote] = useState<MasterNote | null>(null)
   const [isMasterNoteOpen, setIsMasterNoteOpen] = useState(false)
-  const [masterNoteContent, setMasterNoteContent] = useState('')
   const [isNpcModalOpen, setIsNpcModalOpen] = useState(false)
   const [isNpcReadOnly, setIsNpcReadOnly] = useState(false)
   const [editingNpcId, setEditingNpcId] = useState<string | null>(null)
@@ -1362,14 +1357,29 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     reward: '',
     notes: ''
   })
-  const [turnMonitor, setTurnMonitor] = useState<TurnMonitorData>(() => createDefaultTurnMonitorData())
-  const [turnMonitorStatus, setTurnMonitorStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const hasLoadedTurnMonitorRef = useRef(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const lastAutoSwitchRef = useRef(0)
-  const audioSourceRef = useRef<{ trackId: string | null; url: string | null }>({
-    trackId: null,
-    url: null
+  const {
+    campaign,
+    sessions,
+    players,
+    npcs,
+    quests,
+    masterNote,
+    masterNoteContent,
+    setMasterNoteContent,
+    setMasterNote,
+    turnMonitor,
+    setTurnMonitor,
+    turnMonitorStatus,
+    hasLoadedTurnMonitorRef,
+    loadSessions,
+    loadPlayers,
+    loadNpcs,
+    loadQuests,
+    saveTurnMonitor
+  } = useCampaignData<Campaign, Session, PlayerCharacter, NPC, Quest, MasterNote, TurnMonitorData>({
+    campaignId,
+    createDefaultTurnMonitorData,
+    normalizeTurnMonitorData
   })
   const [srdMonsters, setSrdMonsters] = useState<SRDMonster[]>([])
   const [pinnedMonsters, setPinnedMonsters] = useState<Array<{
@@ -1383,41 +1393,102 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
   const [monsterImageCache, setMonsterImageCache] = useState<Record<string, string | null>>({})
   const [loadingMonsterImage, setLoadingMonsterImage] = useState(false)
   const [dragMusicCategoryId, setDragMusicCategoryId] = useState<MusicCategoryId | null>(null)
-  
-  // Estados para o tracker de iniciativa/combate
-  const [initiativeList, setInitiativeList] = useState<InitiativeEntry[]>([])
-  const [currentTurnIndex, setCurrentTurnIndex] = useState<number>(0)
-  const [isAddingToInitiative, setIsAddingToInitiative] = useState(false)
-  const [initiativeInputValue, setInitiativeInputValue] = useState<string>('')
-  const [initiativeTargetEntry, setInitiativeTargetEntry] = useState<{
-    type: 'player' | 'monster'
-    name: string
-    sourceId?: string
-    monsterData?: SRDMonster
-    hp?: number
-    maxHp?: number
-    ac?: number
-  } | null>(null)
-  const nextInitiativeId = useRef(1)
-  const lastInitiativeCountRef = useRef(0)
-  const [isHpAdjustOpen, setIsHpAdjustOpen] = useState(false)
-  const [hpAdjustValue, setHpAdjustValue] = useState('')
-  const [hpAdjustTarget, setHpAdjustTarget] = useState<{
-    id: string
-    name: string
-    mode: 'add' | 'sub'
-  } | null>(null)
-  const [selectedEncounterId, setSelectedEncounterId] = useState('')
-  const [isEncounterSaveOpen, setIsEncounterSaveOpen] = useState(false)
-  const [encounterNameInput, setEncounterNameInput] = useState('')
-  const [encounterSaveMode, setEncounterSaveMode] = useState<'create' | 'update'>('create')
-  const [isCustomInitiativeOpen, setIsCustomInitiativeOpen] = useState(false)
-  const [customInitiativeForm, setCustomInitiativeForm] = useState({
-    name: '',
-    initiative: '',
-    hp: '',
-    ac: '',
-    side: 'enemy' as 'ally' | 'enemy'
+  const {
+    addTracksToCategory,
+    addTracksFromDrop,
+    removeTrack,
+    setActiveTrack,
+    togglePlay,
+    stopPlayback,
+    playCategoryRandom
+  } = useMusicController<MusicCategoryId, TurnMonitorData>({
+    turnMonitor,
+    setTurnMonitor,
+    categories: MUSIC_CATEGORIES,
+    keywords: MUSIC_KEYWORDS
+  })
+  const startCombatMusic = useCallback(() => {
+    playCategoryRandom('combate')
+  }, [playCategoryRandom])
+  const {
+    initiativeList,
+    currentTurnIndex,
+    isAddingToInitiative,
+    initiativeInputValue,
+    initiativeTargetEntry,
+    isHpAdjustOpen,
+    hpAdjustValue,
+    hpAdjustTarget,
+    selectedEncounterId,
+    selectedEncounter,
+    isEncounterSaveOpen,
+    encounterNameInput,
+    encounterSaveMode,
+    isCustomInitiativeOpen,
+    customInitiativeForm,
+    setIsAddingToInitiative,
+    setInitiativeInputValue,
+    setIsHpAdjustOpen,
+    setHpAdjustValue,
+    setSelectedEncounterId,
+    setIsEncounterSaveOpen,
+    setEncounterNameInput,
+    setIsCustomInitiativeOpen,
+    setCustomInitiativeForm,
+    openAddToInitiative,
+    addToInitiative,
+    openCustomInitiative,
+    addCustomInitiative,
+    removeFromInitiative,
+    duplicateInitiativeEntry,
+    isEntryDead,
+    nextTurn,
+    previousTurn,
+    resetCombat,
+    updateInitiativeHp,
+    updateInitiativeValue,
+    updateInitiativeCondition,
+    openHpAdjust,
+    applyHpAdjust,
+    openCreateEncounter,
+    openUpdateEncounter,
+    saveEncounter,
+    loadEncounter,
+    removeEncounter
+  } = useCombatTracker<SRDMonster, TurnMonitorData>({
+    turnMonitor,
+    setTurnMonitor,
+    onInitiativeStart: startCombatMusic
+  })
+  const {
+    updateTurnPeriod,
+    updateTurnAction,
+    updateEncounterTable,
+    updateEncounterTable20,
+    fillEncounterTable,
+    fillEncounterTable20,
+    updatePvRow,
+    updateMonsterRow,
+    updateEffectRow,
+    setOrderOfMarch,
+    setOrderOfWatch
+  } = useTurnMonitorControls<
+    TurnPeriodId,
+    EncounterEnvironment,
+    EncounterDifficulty,
+    TurnMonitorPVRow,
+    TurnMonitorMonsterRow,
+    TurnMonitorEffectRow,
+    TurnMonitorData
+  >({
+    turnMonitor,
+    setTurnMonitor,
+    encounterRolls: ENCOUNTER_ROLLS,
+    encounterRolls20: ENCOUNTER_ROLLS_20,
+    encounterTables: ENCOUNTER_TABLES,
+    encounterTables20: ENCOUNTER_TABLES_20,
+    encounterDifficulties: ENCOUNTER_DIFFICULTIES,
+    fallbackDifficultyId: 'medium'
   })
 
   const getProficiencyBonusForLevel = (level: number) => {
@@ -1430,16 +1501,6 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     () => getProficiencyBonusForLevel(playerForm.level),
     [playerForm.level]
   )
-
-  useEffect(() => {
-    loadCampaign()
-    loadSessions()
-    loadPlayers()
-    loadNpcs()
-    loadQuests()
-    loadMasterNote()
-    loadTurnMonitor()
-  }, [campaignId])
 
   useEffect(() => {
     setPlayerForm((prev) => {
@@ -1489,7 +1550,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
   useEffect(() => {
     if (draggingMonsterId === null) return
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (e: globalThis.MouseEvent) => {
       setPinnedMonsters(prev => prev.map(p => 
         p.id === draggingMonsterId 
           ? { ...p, position: { x: e.clientX - dragOffset.x, y: e.clientY - dragOffset.y } }
@@ -1510,96 +1571,6 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     }
   }, [draggingMonsterId, dragOffset])
 
-
-  const loadCampaign = async () => {
-    try {
-      const data = await window.electron.campaigns.getAll()
-      const current = data.find((item) => item.id === campaignId) || null
-      setCampaign(current)
-    } catch (error) {
-      console.error('Erro ao carregar campanha:', error)
-    }
-  }
-
-  const loadSessions = async () => {
-    try {
-      const data = await window.electron.sessions.getByCapaign(campaignId)
-      setSessions(data)
-    } catch (error) {
-      console.error('Erro ao carregar sessões:', error)
-    }
-  }
-
-  const loadPlayers = async () => {
-    try {
-      const data = await window.electron.players.getByCampaign(campaignId)
-      setPlayers(data)
-    } catch (error) {
-      console.error('Erro ao carregar personagens:', error)
-    }
-  }
-
-  const loadNpcs = async () => {
-    try {
-      const data = await window.electron.npcs.getByCampaign(campaignId)
-      setNpcs(data)
-    } catch (error) {
-      console.error('Erro ao carregar NPCs:', error)
-    }
-  }
-
-  const loadQuests = async () => {
-    try {
-      const data = await window.electron.quests.getByCampaign(campaignId)
-      setQuests(data)
-    } catch (error) {
-      console.error('Erro ao carregar quests:', error)
-    }
-  }
-
-  const loadMasterNote = async () => {
-    try {
-      const data = await window.electron.masterNotes.getByCampaign(campaignId)
-      setMasterNote(data)
-      setMasterNoteContent(data?.content || '')
-    } catch (error) {
-      console.error('Erro ao carregar anotações do mestre:', error)
-    }
-  }
-
-  const loadTurnMonitor = async () => {
-    try {
-      const data = await window.electron.turnMonitor.getByCampaign(campaignId)
-      const parsed = data?.content ? JSON.parse(data.content) : null
-      setTurnMonitor(normalizeTurnMonitorData(parsed))
-      setTurnMonitorStatus('idle')
-    } catch (error) {
-      console.error('Erro ao carregar monitoramento de turnos:', error)
-      setTurnMonitor(createDefaultTurnMonitorData())
-      setTurnMonitorStatus('error')
-    } finally {
-      hasLoadedTurnMonitorRef.current = true
-    }
-  }
-
-  const saveTurnMonitor = useCallback(async (data: TurnMonitorData, showStatus = true) => {
-    try {
-      if (showStatus) {
-        setTurnMonitorStatus('saving')
-      }
-      await window.electron.turnMonitor.save({
-        campaignId,
-        content: JSON.stringify(data)
-      })
-      if (showStatus) {
-        setTurnMonitorStatus('saved')
-        setTimeout(() => setTurnMonitorStatus('idle'), 1400)
-      }
-    } catch (error) {
-      console.error('Erro ao salvar monitoramento de turnos:', error)
-      setTurnMonitorStatus('error')
-    }
-  }, [campaignId])
 
   const resetPlayerForm = () => {
     setPlayerForm({
@@ -2020,113 +1991,6 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     }
   }
 
-  // Funções para o tracker de iniciativa/combate
-  function startCombatMusic() {
-    setTurnMonitor((prev) => {
-      const tracks = prev.music.categories.combate
-      if (tracks.length === 0) return prev
-      const nextTrack = tracks[Math.floor(Math.random() * tracks.length)]
-      return {
-        ...prev,
-        music: {
-          ...prev.music,
-          activeCategoryId: 'combate',
-          activeTrackId: nextTrack.id,
-          isPlaying: true
-        }
-      }
-    })
-  }
-
-  const openHpAdjust = (entry: InitiativeEntry, mode: 'add' | 'sub') => {
-    setHpAdjustTarget({ id: entry.id, name: entry.name, mode })
-    setHpAdjustValue('')
-    setIsHpAdjustOpen(true)
-  }
-
-  const applyHpAdjust = () => {
-    if (!hpAdjustTarget) return
-    const value = parseInt(hpAdjustValue, 10)
-    if (isNaN(value) || value <= 0) return
-    const delta = hpAdjustTarget.mode === 'sub' ? -value : value
-    updateInitiativeHp(hpAdjustTarget.id, delta)
-    setIsHpAdjustOpen(false)
-    setHpAdjustTarget(null)
-    setHpAdjustValue('')
-  }
-
-  const selectedEncounter = useMemo(
-    () => turnMonitor.encounters.find((encounter) => encounter.id === selectedEncounterId) || null,
-    [turnMonitor.encounters, selectedEncounterId]
-  )
-
-  const openCreateEncounter = () => {
-    setEncounterSaveMode('create')
-    setEncounterNameInput('')
-    setIsEncounterSaveOpen(true)
-  }
-
-  const openUpdateEncounter = () => {
-    if (!selectedEncounter) return
-    setEncounterSaveMode('update')
-    setEncounterNameInput(selectedEncounter.name)
-    setIsEncounterSaveOpen(true)
-  }
-
-  const saveEncounter = () => {
-    const name = encounterNameInput.trim()
-    if (!name || initiativeList.length === 0) return
-    if (encounterSaveMode === 'create') {
-      const id = `encounter-${Date.now()}`
-      const entries = initiativeList.map((entry) => ({ ...entry }))
-      setTurnMonitor((prev) => ({
-        ...prev,
-        encounters: [...prev.encounters, { id, name, entries }]
-      }))
-      setSelectedEncounterId(id)
-    } else if (selectedEncounter) {
-      const entries = initiativeList.map((entry) => ({ ...entry }))
-      setTurnMonitor((prev) => ({
-        ...prev,
-        encounters: prev.encounters.map((encounter) =>
-          encounter.id === selectedEncounter.id ? { ...encounter, name, entries } : encounter
-        )
-      }))
-    }
-    setIsEncounterSaveOpen(false)
-    setEncounterNameInput('')
-  }
-
-  const loadEncounter = () => {
-    if (!selectedEncounter) return
-    setInitiativeList(selectedEncounter.entries.map((entry) => ({ ...entry })))
-    setCurrentTurnIndex(0)
-  }
-
-  const removeEncounter = () => {
-    if (!selectedEncounter) return
-    if (!confirm(`Deseja remover o encontro "${selectedEncounter.name}"?`)) return
-    setTurnMonitor((prev) => ({
-      ...prev,
-      encounters: prev.encounters.filter((encounter) => encounter.id !== selectedEncounter.id)
-    }))
-    setSelectedEncounterId('')
-  }
-
-  const openAddToInitiative = (entry: {
-    type: 'player' | 'monster'
-    name: string
-    sourceId?: string
-    monsterData?: SRDMonster
-    hp?: number
-    maxHp?: number
-    ac?: number
-  }) => {
-    setInitiativeTargetEntry(entry)
-    setInitiativeInputValue('')
-    setIsAddingToInitiative(true)
-  }
-
   const openMonsterStats = (monster: SRDMonster, event?: { clientX: number; clientY: number }) => {
     const fallback = { x: 120, y: 120 }
     const position = event
@@ -2140,202 +2004,32 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     setPinnedMonsters((prev) => [...prev, newPopup])
   }
 
-  const addToInitiative = () => {
-    if (!initiativeTargetEntry) return
-    const initiativeValue = parseInt(initiativeInputValue, 10)
-    if (isNaN(initiativeValue)) return
-
-    const newEntry: InitiativeEntry = {
-      id: `initiative-${nextInitiativeId.current++}`,
-      name: initiativeTargetEntry.name,
-      type: initiativeTargetEntry.type,
-      initiative: initiativeValue,
-      condition: '',
-      hp: initiativeTargetEntry.hp,
-      maxHp: initiativeTargetEntry.maxHp,
-      ac: initiativeTargetEntry.ac,
-      sourceId: initiativeTargetEntry.sourceId,
-      monsterData: initiativeTargetEntry.monsterData
-    }
-
-    setInitiativeList((prev) => {
-      const updated = [...prev, newEntry]
-      return updated.sort((a, b) => b.initiative - a.initiative)
-    })
-
-    setIsAddingToInitiative(false)
-    setInitiativeTargetEntry(null)
-    setInitiativeInputValue('')
-  }
-
-  const openCustomInitiative = () => {
-    setCustomInitiativeForm({
-      name: '',
-      initiative: '',
-      hp: '',
-      ac: '',
-      side: 'enemy'
-    })
-    setIsCustomInitiativeOpen(true)
-  }
-
-  const addCustomInitiative = () => {
-    const name = customInitiativeForm.name.trim()
-    const initiativeValue = parseInt(customInitiativeForm.initiative, 10)
-    const hpValue = parseInt(customInitiativeForm.hp, 10)
-    const acValue = parseInt(customInitiativeForm.ac, 10)
-
-    if (!name || isNaN(initiativeValue) || isNaN(hpValue) || isNaN(acValue)) return
-
-    const newEntry: InitiativeEntry = {
-      id: `initiative-${nextInitiativeId.current++}`,
-      name,
-      type: customInitiativeForm.side === 'ally' ? 'player' : 'monster',
-      initiative: initiativeValue,
-      condition: '',
-      hp: hpValue,
-      maxHp: hpValue,
-      ac: acValue,
-      side: customInitiativeForm.side
-    }
-
-    setInitiativeList((prev) => {
-      const updated = [...prev, newEntry]
-      return updated.sort((a, b) => b.initiative - a.initiative)
-    })
-
-    setIsCustomInitiativeOpen(false)
-  }
-
-  const removeFromInitiative = (entryId: string) => {
-    setInitiativeList((prev) => {
-      const removedIndex = prev.findIndex((e) => e.id === entryId)
-      const newList = prev.filter((e) => e.id !== entryId)
-      
-      // Ajusta o índice do turno atual se necessário
-      if (currentTurnIndex >= newList.length && newList.length > 0) {
-        setCurrentTurnIndex(0)
-      } else if (removedIndex < currentTurnIndex) {
-        setCurrentTurnIndex((prev) => Math.max(0, prev - 1))
-      }
-      
-      return newList
+  const handlePinnedMonsterDragStart = (
+    pinnedId: number,
+    position: { x: number; y: number },
+    event: ReactMouseEvent<HTMLDivElement>
+  ) => {
+    event.preventDefault()
+    setDraggingMonsterId(pinnedId)
+    setDragOffset({
+      x: event.clientX - position.x,
+      y: event.clientY - position.y
     })
   }
 
-  const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const handlePinnedMonsterClose = (pinnedId: number) => {
+    setPinnedMonsters((prev) => prev.filter((pinned) => pinned.id !== pinnedId))
+  }
 
-  const getDuplicateName = (baseName: string, existing: InitiativeEntry[]) => {
-    const normalizedBase = baseName.replace(/\s*\(\d+\)\s*$/, '')
-    const pattern = new RegExp(`^${escapeRegex(normalizedBase)}\\s*(?:\\((\\d+)\\))?$`)
-    let maxIndex = 1
-    let hasMatch = false
-
-    existing.forEach((entry) => {
-      const match = entry.name.match(pattern)
-      if (!match) return
-      hasMatch = true
-      if (!match[1]) return
-      const parsed = Number(match[1])
-      if (Number.isFinite(parsed)) {
-        maxIndex = Math.max(maxIndex, parsed)
-      }
+  const handlePinnedMonsterAddToInitiative = (monster: SRDMonster) => {
+    openAddToInitiative({
+      type: 'monster',
+      name: monster.name,
+      monsterData: monster,
+      hp: monster.hit_points,
+      maxHp: monster.hit_points,
+      ac: monster.armor_class[0]?.value
     })
-
-    const nextIndex = hasMatch ? Math.max(2, maxIndex + 1) : 2
-    return `${normalizedBase} (${nextIndex})`
-  }
-
-  const duplicateInitiativeEntry = (entry: InitiativeEntry) => {
-    setInitiativeList((prev) => {
-      const currentId = prev[currentTurnIndex]?.id
-      const resolvedHp = entry.maxHp ?? entry.hp
-      const newEntry: InitiativeEntry = {
-        ...entry,
-        id: `initiative-${nextInitiativeId.current++}`,
-        name: getDuplicateName(entry.name, prev),
-        hp: resolvedHp,
-        condition: ''
-      }
-      const updated = [...prev, newEntry].sort((a, b) => b.initiative - a.initiative)
-      if (currentId) {
-        const nextIndex = updated.findIndex((item) => item.id === currentId)
-        if (nextIndex >= 0) setCurrentTurnIndex(nextIndex)
-      }
-      return updated
-    })
-  }
-
-  const isEntryDead = (entry: InitiativeEntry) => entry.hp !== undefined && entry.hp <= 0
-
-  const getNextAliveIndex = (startIndex: number) => {
-    if (initiativeList.length === 0) return startIndex
-    for (let offset = 1; offset <= initiativeList.length; offset += 1) {
-      const nextIndex = (startIndex + offset) % initiativeList.length
-      if (!isEntryDead(initiativeList[nextIndex])) return nextIndex
-    }
-    return startIndex
-  }
-
-  const nextTurn = () => {
-    if (initiativeList.length === 0) return
-    setCurrentTurnIndex((prev) => getNextAliveIndex(prev))
-  }
-
-  const previousTurn = () => {
-    if (initiativeList.length === 0) return
-    setCurrentTurnIndex((prev) => (prev - 1 + initiativeList.length) % initiativeList.length)
-  }
-
-  const resetCombat = () => {
-    if (!confirm('Deseja encerrar o combate e limpar a lista de iniciativa?')) return
-    setInitiativeList([])
-    setCurrentTurnIndex(0)
-    setTurnMonitor((prev) => {
-      const travelTracks = prev.music.categories.viagem
-      const nextTrack = travelTracks[0]
-      return {
-        ...prev,
-        music: {
-          ...prev.music,
-          activeCategoryId: 'viagem',
-          activeTrackId: nextTrack ? nextTrack.id : null,
-          isPlaying: Boolean(nextTrack)
-        }
-      }
-    })
-  }
-
-  const updateInitiativeHp = (entryId: string, delta: number) => {
-    setInitiativeList((prev) =>
-      prev.map((entry) => {
-        if (entry.id !== entryId || entry.hp === undefined || entry.maxHp === undefined) return entry
-        const newHp = Math.min(entry.maxHp, Math.max(0, entry.hp + delta))
-        return { ...entry, hp: newHp }
-      })
-    )
-  }
-
-  const updateInitiativeValue = (entryId: string, value: number) => {
-    if (!Number.isFinite(value)) return
-    setInitiativeList((prev) => {
-      const currentId = prev[currentTurnIndex]?.id
-      const updated = prev.map((entry) =>
-        entry.id === entryId ? { ...entry, initiative: value } : entry
-      )
-      const sorted = [...updated].sort((a, b) => b.initiative - a.initiative)
-      if (currentId) {
-        const nextIndex = sorted.findIndex((entry) => entry.id === currentId)
-        if (nextIndex >= 0) setCurrentTurnIndex(nextIndex)
-      }
-      return sorted
-    })
-  }
-
-  const updateInitiativeCondition = (entryId: string, condition: string) => {
-    setInitiativeList((prev) =>
-      prev.map((entry) => (entry.id === entryId ? { ...entry, condition } : entry))
-    )
   }
 
   const isInInitiative = (type: 'player' | 'monster', sourceId?: string) => {
@@ -2509,119 +2203,12 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
   ])
 
   useEffect(() => {
-    audioRef.current = new Audio()
-    audioRef.current.loop = true
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current.src = ''
-      }
-      if (audioSourceRef.current.url) {
-        URL.revokeObjectURL(audioSourceRef.current.url)
-      }
-      audioSourceRef.current = { trackId: null, url: null }
-      audioRef.current = null
-    }
-  }, [])
-
-  useEffect(() => {
     if (!hasLoadedTurnMonitorRef.current) return
     const timer = setTimeout(() => {
       saveTurnMonitor(turnMonitor, false)
     }, 700)
     return () => clearTimeout(timer)
   }, [saveTurnMonitor, turnMonitor])
-
-  useEffect(() => {
-    if (!audioRef.current) return
-    audioRef.current.volume = Math.min(1, Math.max(0, turnMonitor.music.volume))
-  }, [turnMonitor.music.volume])
-
-  useEffect(() => {
-    if (lastInitiativeCountRef.current === 0 && initiativeList.length > 0) {
-      startCombatMusic()
-    }
-    lastInitiativeCountRef.current = initiativeList.length
-  }, [initiativeList.length])
-
-  useEffect(() => {
-    if (!audioRef.current) return
-    let isActive = true
-    const syncPlayback = async () => {
-      const categoryTracks = turnMonitor.music.categories[turnMonitor.music.activeCategoryId]
-      const activeTrack = categoryTracks.find((track) => track.id === turnMonitor.music.activeTrackId)
-      const nextTrack = activeTrack ?? categoryTracks[0]
-      if (!nextTrack) {
-        audioRef.current?.pause()
-        return
-      }
-
-      if (audioSourceRef.current.trackId !== nextTrack.id) {
-        try {
-          const fileData = await window.electron.media.readAudioFile(nextTrack.path)
-          if (!isActive || !audioRef.current) return
-          const bytes = fileData.data instanceof ArrayBuffer
-            ? new Uint8Array(fileData.data)
-            : new Uint8Array(fileData.data)
-          const blob = new Blob([bytes], { type: fileData.mimeType })
-          const url = URL.createObjectURL(blob)
-          if (audioSourceRef.current.url) {
-            URL.revokeObjectURL(audioSourceRef.current.url)
-          }
-          audioSourceRef.current = { trackId: nextTrack.id, url }
-          audioRef.current.src = url
-        } catch (error) {
-          console.error('Erro ao carregar música:', error)
-          return
-        }
-      }
-
-      if (turnMonitor.music.isPlaying) {
-        audioRef.current.play().catch((error) => {
-          console.error('Erro ao tocar música:', error)
-        })
-      } else {
-        audioRef.current.pause()
-      }
-    }
-
-    syncPlayback()
-    return () => {
-      isActive = false
-    }
-  }, [
-    turnMonitor.music.activeCategoryId,
-    turnMonitor.music.activeTrackId,
-    turnMonitor.music.categories,
-    turnMonitor.music.isPlaying
-  ])
-
-  useEffect(() => {
-    if (!turnMonitor.music.autoMode) return
-    const unsubscribe = window.electron.audio.onTranscript((text) => {
-      const normalized = text.toLowerCase()
-      const now = Date.now()
-      if (now - lastAutoSwitchRef.current < 5000) return
-      const matched = MUSIC_CATEGORIES.find((category) =>
-        MUSIC_KEYWORDS[category.id].some((keyword) => normalized.includes(keyword))
-      )
-      if (!matched) return
-      const tracks = turnMonitor.music.categories[matched.id]
-      if (tracks.length === 0) return
-      const nextTrack = tracks[Math.floor(Math.random() * tracks.length)]
-      lastAutoSwitchRef.current = now
-      setTurnMonitor((prev) => ({
-        ...prev,
-        music: {
-          ...prev.music,
-          activeCategoryId: matched.id,
-          activeTrackId: nextTrack.id,
-          isPlaying: true
-        }
-      }))
-    })
-    return unsubscribe
-  }, [turnMonitor.music.autoMode, turnMonitor.music.categories])
 
   const formatDate = (value?: Date | null) => {
     if (!value) return 'Sem sessões'
@@ -2637,2431 +2224,211 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           ? 'Erro ao salvar'
           : ''
 
-  const updateTurnPeriod = (periodId: TurnPeriodId, rowIndex: number, columnIndex: number, value: boolean) => {
-    setTurnMonitor((prev) => ({
-      ...prev,
-      periods: {
-        ...prev.periods,
-        [periodId]: prev.periods[periodId].map((row, currentRowIndex) =>
-          currentRowIndex === rowIndex
-            ? row.map((slot, currentColumnIndex) => (currentColumnIndex === columnIndex ? value : slot))
-            : row
-        )
-      }
-    }))
-  }
-
-  const updateTurnAction = (index: number, value: boolean) => {
-    setTurnMonitor((prev) => ({
-      ...prev,
-      actions: prev.actions.map((action, actionIndex) =>
-        actionIndex === index ? value : action
-      )
-    }))
-  }
-
-  const updateEncounterTable = (index: number, value: string) => {
-    setTurnMonitor((prev) => ({
-      ...prev,
-      encounterTable: prev.encounterTable.map((entry, entryIndex) =>
-        entryIndex === index ? value : entry
-      )
-    }))
-  }
-
-  const updateEncounterTable20 = (index: number, value: string) => {
-    setTurnMonitor((prev) => ({
-      ...prev,
-      encounterTable20: prev.encounterTable20.map((entry, entryIndex) =>
-        entryIndex === index ? value : entry
-      )
-    }))
-  }
-
-  const fillEncounterTable = () => {
-    setTurnMonitor((prev) => {
-      const environment = prev.encounterEnvironment
-      const difficulty = prev.encounterDifficulty
-      const fallback = ENCOUNTER_TABLES.floresta.medium
-      const table =
-        ENCOUNTER_TABLES[environment]?.[difficulty] ||
-        ENCOUNTER_TABLES[environment]?.medium ||
-        fallback
-      const normalizedTable = Array.from({ length: ENCOUNTER_ROLLS.length }, (_, index) =>
-        table[index] ?? ''
-      )
-      return { ...prev, encounterTable: normalizedTable }
-    })
-  }
-
-  const getDifficultyLabel = (difficulty: EncounterDifficulty) => {
-    return ENCOUNTER_DIFFICULTIES.find((item) => item.id === difficulty)?.label || 'Médio'
-  }
-
-  const fillEncounterTable20 = () => {
-    setTurnMonitor((prev) => {
-      const environment = prev.encounterEnvironment
-      const difficulty = prev.encounterDifficulty
-      const template = ENCOUNTER_TABLES_20[environment] || ENCOUNTER_TABLES_20.floresta
-      const difficultyLabel = getDifficultyLabel(difficulty)
-      const normalizedTable = Array.from({ length: ENCOUNTER_ROLLS_20.length }, (_, index) =>
-        (template[index] || '')
-          .replace('{difficulty}', difficultyLabel)
-          .replace('{environment}', environment)
-      )
-      return { ...prev, encounterTable20: normalizedTable }
-    })
-  }
-
-  const updatePvRow = (index: number, key: keyof TurnMonitorPVRow, value: string) => {
-    setTurnMonitor((prev) => {
-      const nextRows = [...prev.pvRows]
-      nextRows[index] = { ...nextRows[index], [key]: value }
-      return { ...prev, pvRows: nextRows }
-    })
-  }
-
-  const updateMonsterRow = (index: number, key: keyof TurnMonitorMonsterRow, value: string) => {
-    setTurnMonitor((prev) => {
-      const nextRows = [...prev.monsterRows]
-      nextRows[index] = { ...nextRows[index], [key]: value }
-      return { ...prev, monsterRows: nextRows }
-    })
-  }
-
-  const updateEffectRow = (index: number, key: keyof TurnMonitorEffectRow, value: string) => {
-    setTurnMonitor((prev) => {
-      const nextRows = [...prev.effectRows]
-      nextRows[index] = { ...nextRows[index], [key]: value }
-      return { ...prev, effectRows: nextRows }
-    })
-  }
-
-  const pickMusicFiles = async (): Promise<string[]> => {
-    try {
-      const result = await window.electron.media.pickAudioFiles()
-      return Array.isArray(result) ? result : []
-    } catch (error) {
-      console.error('Erro ao selecionar músicas:', error)
-      return []
-    }
-  }
-
-  const appendTracksToCategory = (categoryId: MusicCategoryId, paths: string[]) => {
-    if (paths.length === 0) return
-    setTurnMonitor((prev) => {
-      const existing = prev.music.categories[categoryId]
-      const newTracks = paths.map((path, index) => {
-        const fileName = path.split(/[\\/]/).pop() || path
-        return {
-          id: `${Date.now()}-${categoryId}-${index}`,
-          name: fileName,
-          path
-        }
-      })
-      const shouldActivate = prev.music.activeTrackId === null && newTracks.length > 0
-      return {
-        ...prev,
-        music: {
-          ...prev.music,
-          categories: {
-            ...prev.music.categories,
-            [categoryId]: [...existing, ...newTracks]
-          },
-          activeCategoryId: shouldActivate ? categoryId : prev.music.activeCategoryId,
-          activeTrackId: shouldActivate ? newTracks[0].id : prev.music.activeTrackId
-        }
-      }
-    })
-  }
-
-  const addTracksToCategory = async (categoryId: MusicCategoryId) => {
-    const paths = await pickMusicFiles()
-    appendTracksToCategory(categoryId, paths)
-  }
-
-  const addTracksFromDrop = (categoryId: MusicCategoryId, files: FileList | File[]) => {
-    const paths = Array.from(files)
-      .map((file) => (file as File & { path?: string }).path)
-      .filter((path): path is string => Boolean(path))
-    appendTracksToCategory(categoryId, paths)
-  }
-
-  const removeTrack = (categoryId: MusicCategoryId, trackId: string) => {
-    setTurnMonitor((prev) => {
-      const nextTracks = prev.music.categories[categoryId].filter((track) => track.id !== trackId)
-      const isActive = prev.music.activeTrackId === trackId
-      return {
-        ...prev,
-        music: {
-          ...prev.music,
-          categories: {
-            ...prev.music.categories,
-            [categoryId]: nextTracks
-          },
-          activeTrackId: isActive ? null : prev.music.activeTrackId,
-          isPlaying: isActive ? false : prev.music.isPlaying
-        }
-      }
-    })
-  }
-
-  const setActiveTrack = (categoryId: MusicCategoryId, trackId: string) => {
-    setTurnMonitor((prev) => {
-      const isSameTrack =
-        prev.music.activeCategoryId === categoryId &&
-        prev.music.activeTrackId === trackId
-      return {
-        ...prev,
-        music: {
-          ...prev.music,
-          activeCategoryId: categoryId,
-          activeTrackId: trackId,
-          isPlaying: isSameTrack ? !prev.music.isPlaying : true
-        }
-      }
-    })
-  }
-
-  const getFirstAvailableTrack = (music: MusicState) => {
-    for (const category of MUSIC_CATEGORIES) {
-      const track = music.categories[category.id][0]
-      if (track) return { categoryId: category.id, track }
-    }
-    return null
-  }
-
-  const togglePlay = () => {
-    setTurnMonitor((prev) => {
-      if (prev.music.isPlaying) {
-        return {
-          ...prev,
-          music: {
-            ...prev.music,
-            isPlaying: false
-          }
-        }
-      }
-
-      const activeTracks = prev.music.categories[prev.music.activeCategoryId]
-      const activeTrack = activeTracks.find((track) => track.id === prev.music.activeTrackId)
-      if (activeTrack) {
-        return {
-          ...prev,
-          music: {
-            ...prev.music,
-            isPlaying: true
-          }
-        }
-      }
-
-      const fallback = getFirstAvailableTrack(prev.music)
-      if (!fallback) return prev
-      return {
-        ...prev,
-        music: {
-          ...prev.music,
-          activeCategoryId: fallback.categoryId,
-          activeTrackId: fallback.track.id,
-          isPlaying: true
-        }
-      }
-    })
-  }
-
-  const stopPlayback = () => {
-    if (audioRef.current) {
-      audioRef.current.pause()
-      audioRef.current.currentTime = 0
-    }
-    setTurnMonitor((prev) => ({
-      ...prev,
-      music: {
-        ...prev.music,
-        isPlaying: false
-      }
-    }))
-  }
-
   return (
     <div className="campaign-dashboard">
-      <section className="dashboard-hero">
-        <div className="hero-content">
-          <p className="hero-kicker">Campanha ativa</p>
-          <h2>{campaign?.name || 'Campanha sem nome'}</h2>
-          <p className="hero-subtitle">
-            Comece a próxima sessão e acompanhe o progresso da história.
-          </p>
-          <div className="hero-actions">
-            <button className="btn-primary" onClick={onStartSession}>
-              Iniciar sessão
-            </button>
-            <button className="btn-secondary" onClick={loadSessions}>
-              Atualizar dados
-            </button>
-          </div>
-        </div>
-        <div className="hero-panel">
-          <div className="stat-card">
-            <span className="stat-label">Sessões gravadas</span>
-            <span className="stat-value">{stats.total}</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-label">Tempo total</span>
-            <span className="stat-value">{stats.totalMinutes} min</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-label">Última sessão</span>
-            <span className="stat-value">{formatDate(stats.lastSessionDate)}</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-label">Sessões concluídas</span>
-            <span className="stat-value">{stats.completed}</span>
-          </div>
-        </div>
-      </section>
+      <HeroPanel
+        campaignName={campaign?.name}
+        stats={stats}
+        formatDate={formatDate}
+        onStartSession={onStartSession}
+        onReload={loadSessions}
+      />
 
       <section className="dashboard-grid">
-        <article className="dashboard-card timeline">
-          <header>
-            <h3>Linha do tempo</h3>
-          </header>
-          <div className="timeline-list">
-            {sessions.length === 0 ? (
-              <div className="dashboard-empty">Nenhuma sessão registrada.</div>
-            ) : (
-              sessions.slice(0, 5).map((session) => (
-                <div key={session.id} className="timeline-item">
-                  <div className="timeline-dot" />
-                  <div>
-                    <strong>{formatDate(new Date(session.startedAt))}</strong>
-                    <p className="text-muted">
-                      {session.endedAt ? 'Sessão encerrada' : 'Sessão em andamento'}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </article>
+        <TimelinePanel sessions={sessions} formatDate={formatDate} />
 
-        <article className="dashboard-card npcs">
-          <header>
-            <h3>NPCs da campanha</h3>
-            
-          </header>
-          <div className="npc-grid">
-            {npcs.length === 0 ? (
-              <div className="dashboard-empty">Nenhum NPC cadastrado.</div>
-            ) : (
-              npcs.map((npc) => {
-                const tagList = (npc.tags || '')
-                  .split(',')
-                  .map((tag) => tag.trim())
-                  .filter(Boolean)
-                return (
-                  <div key={npc.id} className="npc-card">
-                    <div className="npc-header">
-                      <strong>{npc.name}</strong>
-                      <span className="npc-location">{npc.location || 'Local desconhecido'}</span>
-                    </div>
-                    <div className="npc-meta">
-                      <span>{npc.race || 'Raça desconhecida'}</span>
-                      <span>{npc.occupation || 'Ocupação indefinida'}</span>
-                    </div>
-                    {tagList.length > 0 && (
-                      <div className="npc-tags">
-                        {tagList.map((tag) => (
-                          <span key={tag} className="npc-tag">{tag}</span>
-                        ))}
-                      </div>
-                    )}
-                    {npc.notes && <p className="npc-notes">{npc.notes}</p>}
-                    <div className="npc-actions">
-                      <button
-                        className="action-icon-btn"
-                        onClick={() => startViewNpc(npc)}
-                        aria-label="Ver detalhes"
-                        title="Detalhes"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6Z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                      </button>
-                      <button
-                        className="action-icon-btn"
-                        onClick={() => startEditNpc(npc)}
-                        aria-label="Editar NPC"
-                        title="Editar"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M4 20h4l10-10-4-4L4 16v4Z" />
-                          <path d="M13 7l4 4" />
-                        </svg>
-                      </button>
-                      <button
-                        className="action-icon-btn danger"
-                        onClick={() => handleDeleteNpc(npc.id)}
-                        aria-label="Remover NPC"
-                        title="Remover"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4h8v2" />
-                          <path d="M6 6l1 14h10l1-14" />
-                          <path d="M10 11v6" />
-                          <path d="M14 11v6" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-            <button className="npc-add" onClick={startCreateNpc}>
-              + Adicionar NPC
-            </button>
-          </div>
+        <NpcPanel
+          npcs={npcs}
+          npcForm={npcForm}
+          isNpcModalOpen={isNpcModalOpen}
+          isNpcReadOnly={isNpcReadOnly}
+          editingNpcId={editingNpcId}
+          onCreate={startCreateNpc}
+          onView={startViewNpc}
+          onEdit={startEditNpc}
+          onDelete={handleDeleteNpc}
+          onCloseModal={() => setIsNpcModalOpen(false)}
+          onSave={handleSaveNpc}
+          setNpcForm={setNpcForm}
+        />
 
-          {isNpcModalOpen && (
-            <div className="modal-overlay" onClick={() => setIsNpcModalOpen(false)}>
-              <div className="modal" onClick={(event) => event.stopPropagation()}>
-                <div className="modal-header">
-                  <h4>{editingNpcId ? (isNpcReadOnly ? 'Detalhes do NPC' : 'Editar NPC') : 'Novo NPC'}</h4>
-                  <button className="modal-close" onClick={() => setIsNpcModalOpen(false)}>
-                    ✕
-                  </button>
-                </div>
-                <div className="player-form">
-                  <div className="player-form-section">
-                    <h5>Informações básicas</h5>
-                    <div className="player-form-grid">
-                      <label className="field">
-                        <span>Nome</span>
-                        <input
-                          type="text"
-                          value={npcForm.name}
-                          readOnly={isNpcReadOnly}
-                          onChange={(event) => setNpcForm({ ...npcForm, name: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Raça</span>
-                        <input
-                          type="text"
-                          value={npcForm.race}
-                          readOnly={isNpcReadOnly}
-                          onChange={(event) => setNpcForm({ ...npcForm, race: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Ocupação</span>
-                        <input
-                          type="text"
-                          value={npcForm.occupation}
-                          readOnly={isNpcReadOnly}
-                          onChange={(event) => setNpcForm({ ...npcForm, occupation: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Local</span>
-                        <input
-                          type="text"
-                          value={npcForm.location}
-                          readOnly={isNpcReadOnly}
-                          onChange={(event) => setNpcForm({ ...npcForm, location: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Tags (separadas por vírgula)</span>
-                        <input
-                          type="text"
-                          value={npcForm.tags}
-                          readOnly={isNpcReadOnly}
-                          onChange={(event) => setNpcForm({ ...npcForm, tags: event.target.value })}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                  <div className="player-form-section">
-                    <h5>Notas</h5>
-                    <label className="field">
-                      <span>Observações</span>
-                      <textarea
-                        value={npcForm.notes}
-                        readOnly={isNpcReadOnly}
-                        onChange={(event) => setNpcForm({ ...npcForm, notes: event.target.value })}
-                      />
-                    </label>
-                  </div>
-                  <div className="player-form-actions">
-                    <button className="btn-secondary" onClick={() => setIsNpcModalOpen(false)}>
-                      {isNpcReadOnly ? 'Fechar' : 'Cancelar'}
-                    </button>
-                    {!isNpcReadOnly && (
-                      <button className="btn-primary" onClick={handleSaveNpc}>
-                        {editingNpcId ? 'Salvar' : 'Criar'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </article>
+        <PlayerPanel
+          players={players}
+          playerForm={playerForm}
+          savingThrowEntries={savingThrowEntries}
+          skillEntries={skillEntries}
+          computedProficiencyBonus={computedProficiencyBonus}
+          isEditingPlayer={isEditingPlayer}
+          editingPlayerId={editingPlayerId}
+          isInInitiative={isInInitiative}
+          openAddToInitiative={openAddToInitiative}
+          startCreatePlayer={startCreatePlayer}
+          startEditPlayer={startEditPlayer}
+          handleDeletePlayer={handleDeletePlayer}
+          adjustPlayerHitPoints={adjustPlayerHitPoints}
+          clearPlayerInspiration={clearPlayerInspiration}
+          handleSavePlayer={handleSavePlayer}
+          setIsEditingPlayer={setIsEditingPlayer}
+          setPlayerForm={setPlayerForm}
+          setSavingThrowEntries={setSavingThrowEntries}
+          setSkillEntries={setSkillEntries}
+          abilityMod={abilityMod}
+          formatMod={formatMod}
+          getAbilityMod={getAbilityMod}
+          getProficiencyBonusValue={getProficiencyBonusValue}
+          savingThrowAbilityMap={savingThrowAbilityMap}
+          skillAbilityMap={skillAbilityMap}
+        />
 
-        <article className="dashboard-card players">
-          <header>
-            <h3>Personagens jogadores</h3>
-            
-          </header>
-          <div className="player-grid">
-            {players.length === 0 ? (
-              <div className="dashboard-empty">Nenhum personagem cadastrado.</div>
-            ) : (
-              players.map((player) => {
-                const baseHp = player.currentHitPoints ?? player.hitPoints
-                const tempHp = player.tempHitPoints ?? 0
-                const totalHp = baseHp + tempHp
-                return (
-                  <div key={player.id} className="player-card">
-                    <div className="player-header">
-                      <div className="player-title">
-                        <strong>{player.name}</strong>
-                        {player.inspiration && (
-                          <button
-                            className="player-inspiration"
-                            onClick={() => clearPlayerInspiration(player)}
-                            title="Remover inspiração"
-                            aria-label="Remover inspiração"
-                          >
-                            Inspiração
-                          </button>
-                        )}
-                      </div>
-                      <div className="player-actions">
-                        <div className="player-hp-controls">
-                          <span className="player-hp-value">
-                            PV {totalHp}/{player.hitPoints}
-                            {tempHp > 0 && (
-                              <span className="player-hp-temp">(+{tempHp} temp)</span>
-                            )}
-                          </span>
-                          <div className="player-hp-buttons">
-                            <button
-                              className="player-hp-btn"
-                              onClick={() => adjustPlayerHitPoints(player, -1)}
-                              aria-label="Reduzir PV"
-                              title="Reduzir PV"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M6 12h12" />
-                              </svg>
-                            </button>
-                            <button
-                              className="player-hp-btn"
-                              onClick={() => adjustPlayerHitPoints(player, 1)}
-                              aria-label="Aumentar PV"
-                              title="Aumentar PV"
-                            >
-                              <svg viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M12 6v12M6 12h12" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  <span className="text-muted">
-                      {player.className} {player.subclass ? `(${player.subclass})` : ''} (Nível {player.level}) - {player.ancestry}
-                  </span>
-                  <div className="player-stats">
-                    <span>CA {player.armorClass}</span>
-                    <span>FOR {formatMod(getAbilityMod(player.strength))}</span>
-                    <span>DES {formatMod(getAbilityMod(player.dexterity))}</span>
-                    <span>CON {formatMod(getAbilityMod(player.constitution))}</span>
-                    <span>INT {formatMod(getAbilityMod(player.intelligence))}</span>
-                    <span>SAB {formatMod(getAbilityMod(player.wisdom))}</span>
-                    <span>CAR {formatMod(getAbilityMod(player.charisma))}</span>
-                  </div>
-                  <div className="player-footer">
-                    {player.sheetUrl && (
-                      <button
-                        className="action-icon-btn sheet"
-                        onClick={() => window.electron.shell.openExternal(player.sheetUrl!)}
-                        aria-label="Ver ficha"
-                        title="Abrir ficha no navegador"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                          <polyline points="15 3 21 3 21 9" />
-                          <line x1="10" y1="14" x2="21" y2="3" />
-                        </svg>
-                      </button>
-                    )}
-                    <button
-                      className={`action-icon-btn initiative ${isInInitiative('player', player.id) ? 'in-combat' : ''}`}
-                      onClick={() => openAddToInitiative({
-                        type: 'player',
-                        name: player.name,
-                        sourceId: player.id,
-                        hp: (player.currentHitPoints ?? player.hitPoints) + (player.tempHitPoints ?? 0),
-                        maxHp: player.hitPoints + (player.tempHitPoints ?? 0),
-                        ac: player.armorClass
-                      })}
-                      aria-label="Adicionar à iniciativa"
-                      title={isInInitiative('player', player.id) ? 'Já está no combate' : 'Adicionar à iniciativa'}
-                      disabled={isInInitiative('player', player.id)}
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
-                        <path d="M13 19l6-6 2 2-6 6-2-2z" />
-                        <path d="M19 13l2-2-6-6-2 2" />
-                      </svg>
-                    </button>
-                    <button
-                      className="action-icon-btn"
-                      onClick={() => startEditPlayer(player)}
-                      aria-label="Editar personagem"
-                      title="Editar"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M4 20h4l10-10-4-4L4 16v4Z" />
-                        <path d="M13 7l4 4" />
-                      </svg>
-                    </button>
-                    <button
-                      className="action-icon-btn danger"
-                      onClick={() => handleDeletePlayer(player.id)}
-                      aria-label="Remover personagem"
-                      title="Remover"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M3 6h18" />
-                        <path d="M8 6V4h8v2" />
-                        <path d="M6 6l1 14h10l1-14" />
-                        <path d="M10 11v6" />
-                        <path d="M14 11v6" />
-                      </svg>
-                    </button>
-                  </div>
-                  </div>
-                )
-              })
-            )}
-            <button className="player-add" onClick={startCreatePlayer}>
-              + Adicionar personagem
-            </button>
-          </div>
+        <QuestPanel
+          quests={quests}
+          questForm={questForm}
+          isQuestModalOpen={isQuestModalOpen}
+          isQuestReadOnly={isQuestReadOnly}
+          editingQuestId={editingQuestId}
+          onCreate={startCreateQuest}
+          onView={startViewQuest}
+          onEdit={startEditQuest}
+          onDelete={handleDeleteQuest}
+          onCloseModal={() => setIsQuestModalOpen(false)}
+          onSave={handleSaveQuest}
+          setQuestForm={setQuestForm}
+        />
 
-          {isEditingPlayer && (
-            <div className="modal-overlay" onClick={() => setIsEditingPlayer(false)}>
-              <div className="modal" onClick={(event) => event.stopPropagation()}>
-                <div className="modal-header">
-                  <h4>{editingPlayerId ? 'Editar personagem' : 'Novo personagem'}</h4>
-                  <button className="modal-close" onClick={() => setIsEditingPlayer(false)}>
-                    ✕
-                  </button>
-                </div>
-                <div className="player-form">
-                  <div className="player-form-section">
-                    <h5>Dados básicos</h5>
-                    <div className="player-form-grid">
-                      <label className="field">
-                        <span>Nome do personagem</span>
-                        <input
-                          type="text"
-                          value={playerForm.name}
-                          onChange={(event) => setPlayerForm({ ...playerForm, name: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Nome do jogador</span>
-                        <input
-                          type="text"
-                          value={playerForm.playerName}
-                          onChange={(event) => setPlayerForm({ ...playerForm, playerName: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Classe</span>
-                        <input
-                          type="text"
-                          value={playerForm.className}
-                          onChange={(event) => setPlayerForm({ ...playerForm, className: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Subclasse</span>
-                        <input
-                          type="text"
-                          value={playerForm.subclass}
-                          onChange={(event) => setPlayerForm({ ...playerForm, subclass: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Nível</span>
-                        <input
-                          type="number"
-                          min={1}
-                          value={playerForm.level}
-                          onChange={(event) => setPlayerForm({ ...playerForm, level: Number(event.target.value) })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Ancestralidade</span>
-                        <input
-                          type="text"
-                          value={playerForm.ancestry}
-                          onChange={(event) => setPlayerForm({ ...playerForm, ancestry: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Background</span>
-                        <input
-                          type="text"
-                          value={playerForm.background}
-                          onChange={(event) => setPlayerForm({ ...playerForm, background: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Alinhamento</span>
-                        <input
-                          type="text"
-                          value={playerForm.alignment}
-                          onChange={(event) => setPlayerForm({ ...playerForm, alignment: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Experiência</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={playerForm.experience}
-                          onChange={(event) => setPlayerForm({ ...playerForm, experience: Number(event.target.value) })}
-                        />
-                      </label>
-                    </div>
-                  </div>
+        <DiceRollerPanel />
 
-                  <div className="player-form-section">
-                    <h5>Combate</h5>
-                    <div className="player-form-grid compact">
-                      <label className="checkbox-field">
-                        <input
-                          type="checkbox"
-                          checked={playerForm.inspiration}
-                          onChange={(event) => setPlayerForm({ ...playerForm, inspiration: event.target.checked })}
-                        />
-                        Inspiração
-                      </label>
-                      <label className="field">
-                        <span>Bônus de proficiência</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={computedProficiencyBonus}
-                          readOnly
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Classe de armadura</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={playerForm.armorClass}
-                          onChange={(event) => setPlayerForm({ ...playerForm, armorClass: Number(event.target.value) })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Iniciativa</span>
-                        <input
-                          type="number"
-                          value={playerForm.initiative}
-                          onChange={(event) => setPlayerForm({ ...playerForm, initiative: Number(event.target.value) })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Deslocamento</span>
-                        <input
-                          type="number"
-                          value={playerForm.speed}
-                          onChange={(event) => setPlayerForm({ ...playerForm, speed: Number(event.target.value) })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Percepcao passiva</span>
-                        <input
-                          type="number"
-                          value={playerForm.passivePerception}
-                          onChange={(event) => setPlayerForm({ ...playerForm, passivePerception: Number(event.target.value) })}
-                        />
-                      </label>
-                    </div>
-                  </div>
+        <CombatTrackerPanel
+          initiativeList={initiativeList}
+          currentTurnIndex={currentTurnIndex}
+          selectedEncounterId={selectedEncounterId}
+          selectedEncounter={selectedEncounter}
+          turnMonitor={turnMonitor}
+          srdMonsters={srdMonsters}
+          conditionOptions={CONDITION_OPTIONS}
+          getInitiativeTypeLabel={getInitiativeTypeLabel}
+          isEntryDead={isEntryDead}
+          openCustomInitiative={openCustomInitiative}
+          resetCombat={resetCombat}
+          previousTurn={previousTurn}
+          nextTurn={nextTurn}
+          setSelectedEncounterId={setSelectedEncounterId}
+          loadEncounter={loadEncounter}
+          openCreateEncounter={openCreateEncounter}
+          openUpdateEncounter={openUpdateEncounter}
+          removeEncounter={removeEncounter}
+          updateInitiativeValue={updateInitiativeValue}
+          updateInitiativeCondition={updateInitiativeCondition}
+          openHpAdjust={openHpAdjust}
+          duplicateInitiativeEntry={duplicateInitiativeEntry}
+          removeFromInitiative={removeFromInitiative}
+          openMonsterStats={openMonsterStats}
+        />
 
-                  <div className="player-form-section">
-                    <h5>Pontos de vida</h5>
-                    <div className="player-form-grid compact">
-                      <label className="field">
-                        <span>PV maximo</span>
-                        <input
-                          type="number"
-                          min={1}
-                          value={playerForm.hitPoints}
-                          onChange={(event) => setPlayerForm({ ...playerForm, hitPoints: Number(event.target.value) })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>PV atual</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={playerForm.currentHitPoints}
-                          onChange={(event) => setPlayerForm({ ...playerForm, currentHitPoints: Number(event.target.value) })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>PV temporario</span>
-                        <input
-                          type="number"
-                          min={0}
-                          value={playerForm.tempHitPoints}
-                          onChange={(event) => setPlayerForm({ ...playerForm, tempHitPoints: Number(event.target.value) })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Dados de vida</span>
-                        <input
-                          type="text"
-                          value={playerForm.hitDice}
-                          onChange={(event) => setPlayerForm({ ...playerForm, hitDice: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Testes contra morte</span>
-                        <input
-                          type="text"
-                          value={playerForm.deathSaves}
-                          onChange={(event) => setPlayerForm({ ...playerForm, deathSaves: event.target.value })}
-                        />
-                      </label>
-                    </div>
-                  </div>
+        <CombatModals
+          isAddingToInitiative={isAddingToInitiative}
+          initiativeTargetEntry={initiativeTargetEntry}
+          initiativeInputValue={initiativeInputValue}
+          setIsAddingToInitiative={setIsAddingToInitiative}
+          setInitiativeInputValue={setInitiativeInputValue}
+          addToInitiative={addToInitiative}
+          isEncounterSaveOpen={isEncounterSaveOpen}
+          encounterSaveMode={encounterSaveMode}
+          encounterNameInput={encounterNameInput}
+          setIsEncounterSaveOpen={setIsEncounterSaveOpen}
+          setEncounterNameInput={setEncounterNameInput}
+          saveEncounter={saveEncounter}
+          initiativeListLength={initiativeList.length}
+          isHpAdjustOpen={isHpAdjustOpen}
+          hpAdjustTarget={hpAdjustTarget}
+          hpAdjustValue={hpAdjustValue}
+          setIsHpAdjustOpen={setIsHpAdjustOpen}
+          setHpAdjustValue={setHpAdjustValue}
+          applyHpAdjust={applyHpAdjust}
+          isCustomInitiativeOpen={isCustomInitiativeOpen}
+          customInitiativeForm={customInitiativeForm}
+          setIsCustomInitiativeOpen={setIsCustomInitiativeOpen}
+          setCustomInitiativeForm={setCustomInitiativeForm}
+          addCustomInitiative={addCustomInitiative}
+        />
 
-                  <div className="player-form-section">
-                    <h5>Atributos</h5>
-                    <div className="player-form-grid stats">
-                      <label className="field">
-                        <span>FOR <span className="badge">{formatMod(abilityMod('strength'))}</span></span>
-                        <input
-                          type="number"
-                          value={playerForm.strength}
-                          onChange={(event) => setPlayerForm({ ...playerForm, strength: Number(event.target.value) })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>DES <span className="badge">{formatMod(abilityMod('dexterity'))}</span></span>
-                        <input
-                          type="number"
-                          value={playerForm.dexterity}
-                          onChange={(event) => setPlayerForm({ ...playerForm, dexterity: Number(event.target.value) })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>CON <span className="badge">{formatMod(abilityMod('constitution'))}</span></span>
-                        <input
-                          type="number"
-                          value={playerForm.constitution}
-                          onChange={(event) => setPlayerForm({ ...playerForm, constitution: Number(event.target.value) })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>INT <span className="badge">{formatMod(abilityMod('intelligence'))}</span></span>
-                        <input
-                          type="number"
-                          value={playerForm.intelligence}
-                          onChange={(event) => setPlayerForm({ ...playerForm, intelligence: Number(event.target.value) })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>SAB <span className="badge">{formatMod(abilityMod('wisdom'))}</span></span>
-                        <input
-                          type="number"
-                          value={playerForm.wisdom}
-                          onChange={(event) => setPlayerForm({ ...playerForm, wisdom: Number(event.target.value) })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>CAR <span className="badge">{formatMod(abilityMod('charisma'))}</span></span>
-                        <input
-                          type="number"
-                          value={playerForm.charisma}
-                          onChange={(event) => setPlayerForm({ ...playerForm, charisma: Number(event.target.value) })}
-                        />
-                      </label>
-                    </div>
-                  </div>
+        <MusicPanel
+          turnMonitor={turnMonitor}
+          setTurnMonitor={setTurnMonitor}
+          musicCategories={MUSIC_CATEGORIES}
+          dragMusicCategoryId={dragMusicCategoryId}
+          setDragMusicCategoryId={setDragMusicCategoryId}
+          addTracksToCategory={addTracksToCategory}
+          addTracksFromDrop={addTracksFromDrop}
+          removeTrack={removeTrack}
+          setActiveTrack={setActiveTrack}
+          togglePlay={togglePlay}
+          stopPlayback={stopPlayback}
+        />
 
-                  <div className="player-form-section">
-                    <h5>Perícias e salvaguardas</h5>
-                    <label className="field proficiency-notes">
-                      <span>Proficiencias gerais</span>
-                      <textarea
-                        value={playerForm.proficiencies}
-                        onChange={(event) => setPlayerForm({ ...playerForm, proficiencies: event.target.value })}
-                      />
-                    </label>
-                    <div className="proficiency-columns">
-                      <div className="proficiency-block">
-                        <span className="proficiency-title">Salvaguardas</span>
-                        <div className="proficiency-grid">
-                          {savingThrowEntries.map((entry) => (
-                            <div key={entry.key} className="proficiency-row">
-                              <span className="proficiency-label">{entry.label}</span>
-                              <select
-                                className="proficiency-select"
-                                value={entry.proficiency}
-                                onChange={(event) =>
-                                  setSavingThrowEntries((prev) =>
-                                    prev.map((item) =>
-                                      item.key === entry.key
-                                        ? { ...item, proficiency: event.target.value as ProficiencyLevel }
-                                        : item
-                                    )
-                                  )
-                                }
-                              >
-                                <option value="none">Sem prof.</option>
-                                <option value="proficient">Proficiente</option>
-                                <option value="expertise">Especialista</option>
-                              </select>
-                              <input
-                                className="proficiency-value"
-                                type="text"
-                                value={formatMod(getProficiencyBonusValue(entry))}
-                                readOnly
-                                title="Bônus de proficiência"
-                              />
-                              <input
-                                className="proficiency-value"
-                                type="text"
-                                value={formatMod(abilityMod(savingThrowAbilityMap[entry.key]))}
-                                readOnly
-                                title="Bônus de atributo"
-                              />
-                              <input
-                                className="proficiency-total"
-                                type="text"
-                                value={formatMod(entry.value)}
-                                readOnly
-                                title="Total"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="proficiency-block">
-                        <span className="proficiency-title">Perícias</span>
-                        <div className="proficiency-grid">
-                          {skillEntries.map((entry) => (
-                            <div key={entry.key} className="proficiency-row">
-                              <span className="proficiency-label">{entry.label}</span>
-                              <select
-                                className="proficiency-select"
-                                value={entry.proficiency}
-                                onChange={(event) =>
-                                  setSkillEntries((prev) =>
-                                    prev.map((item) =>
-                                      item.key === entry.key
-                                        ? { ...item, proficiency: event.target.value as ProficiencyLevel }
-                                        : item
-                                    )
-                                  )
-                                }
-                              >
-                                <option value="none">Sem prof.</option>
-                                <option value="proficient">Proficiente</option>
-                                <option value="expertise">Especialista</option>
-                              </select>
-                              <input
-                                className="proficiency-value"
-                                type="text"
-                                value={formatMod(getProficiencyBonusValue(entry))}
-                                readOnly
-                                title="Bônus de proficiência"
-                              />
-                              <input
-                                className="proficiency-value"
-                                type="text"
-                                value={formatMod(abilityMod(skillAbilityMap[entry.key]))}
-                                readOnly
-                                title="Bônus de atributo"
-                              />
-                              <input
-                                className="proficiency-total"
-                                type="text"
-                                value={formatMod(entry.value)}
-                                readOnly
-                                title="Total"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+        <TurnsPanel
+          turnMonitor={turnMonitor}
+          turnMonitorStatusLabel={turnMonitorStatusLabel}
+          turnMonitorStatus={turnMonitorStatus}
+          saveTurnMonitor={saveTurnMonitor}
+          setTurnMonitor={setTurnMonitor}
+          updateTurnPeriod={updateTurnPeriod}
+          updateTurnAction={updateTurnAction}
+          updateEncounterTable={updateEncounterTable}
+          updateEncounterTable20={updateEncounterTable20}
+          fillEncounterTable={fillEncounterTable}
+          fillEncounterTable20={fillEncounterTable20}
+          updatePvRow={updatePvRow}
+          updateMonsterRow={updateMonsterRow}
+          updateEffectRow={updateEffectRow}
+          setOrderOfMarch={setOrderOfMarch}
+          setOrderOfWatch={setOrderOfWatch}
+          turnPeriods={TURN_PERIODS}
+          turnRows={TURN_ROWS}
+          turnColumns={TURN_COLUMNS}
+          dungeonActions={DUNGEON_ACTIONS}
+          reactionTable={REACTION_TABLE}
+          encounterEnvironments={ENCOUNTER_ENVIRONMENTS}
+          encounterDifficulties={ENCOUNTER_DIFFICULTIES}
+          encounterRolls={ENCOUNTER_ROLLS}
+          encounterRolls20={ENCOUNTER_ROLLS_20}
+          srdMonsters={srdMonsters}
+          openMonsterStats={openMonsterStats}
+          openAddToInitiative={openAddToInitiative}
+        />
 
-                  <div className="player-form-section">
-                    <h5>Combate e magias</h5>
-                    <label className="field">
-                      <span>Ataques e conjuração</span>
-                      <textarea
-                        value={playerForm.attacks}
-                        onChange={(event) => setPlayerForm({ ...playerForm, attacks: event.target.value })}
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Magias conhecidas</span>
-                      <textarea
-                        value={playerForm.spells}
-                        onChange={(event) => setPlayerForm({ ...playerForm, spells: event.target.value })}
-                      />
-                    </label>
-                  </div>
+        <MasterNotesPanel
+          masterNote={masterNote}
+          isOpen={isMasterNoteOpen}
+          masterNoteContent={masterNoteContent}
+          onOpen={openMasterNote}
+          onClose={() => setIsMasterNoteOpen(false)}
+          onSave={handleSaveMasterNote}
+          setMasterNoteContent={setMasterNoteContent}
+        />
 
-                  <div className="player-form-section">
-                    <h5>Equipamentos e habilidades</h5>
-                    <label className="field">
-                      <span>Equipamentos</span>
-                      <textarea
-                        value={playerForm.equipment}
-                        onChange={(event) => setPlayerForm({ ...playerForm, equipment: event.target.value })}
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Características e talentos</span>
-                      <textarea
-                        value={playerForm.features}
-                        onChange={(event) => setPlayerForm({ ...playerForm, features: event.target.value })}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="player-form-section">
-                    <h5>Personalidade</h5>
-                    <label className="field">
-                      <span>Traços de personalidade</span>
-                      <textarea
-                        value={playerForm.personalityTraits}
-                        onChange={(event) => setPlayerForm({ ...playerForm, personalityTraits: event.target.value })}
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Ideais</span>
-                      <textarea
-                        value={playerForm.ideals}
-                        onChange={(event) => setPlayerForm({ ...playerForm, ideals: event.target.value })}
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Vínculos</span>
-                      <textarea
-                        value={playerForm.bonds}
-                        onChange={(event) => setPlayerForm({ ...playerForm, bonds: event.target.value })}
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Defeitos</span>
-                      <textarea
-                        value={playerForm.flaws}
-                        onChange={(event) => setPlayerForm({ ...playerForm, flaws: event.target.value })}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="player-form-section">
-                    <h5>Anotações gerais</h5>
-                    <label className="field">
-                      <span>Link da ficha</span>
-                      <input
-                        type="url"
-                        placeholder="https://ddb.ac/characters/..."
-                        value={playerForm.sheetUrl}
-                        onChange={(event) => setPlayerForm({ ...playerForm, sheetUrl: event.target.value })}
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Notas</span>
-                      <textarea
-                        value={playerForm.notes}
-                        onChange={(event) => setPlayerForm({ ...playerForm, notes: event.target.value })}
-                      />
-                    </label>
-                  </div>
-                  <div className="player-form-actions">
-                    <button className="btn-secondary" onClick={() => setIsEditingPlayer(false)}>
-                      Cancelar
-                    </button>
-                    <button className="btn-primary" onClick={handleSavePlayer}>
-                      {editingPlayerId ? 'Salvar' : 'Criar'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </article>
-
-        <article className="dashboard-card quests">
-          <header>
-            <h3>Quest log</h3>
-          </header>
-          <ul className="quest-list">
-            {quests.length === 0 ? (
-              <li className="dashboard-empty">Nenhuma quest cadastrada.</li>
-            ) : (
-              quests.map((quest) => {
-                const statusLabel =
-                  quest.status === 'open'
-                    ? 'Em aberto'
-                    : quest.status === 'in_progress'
-                      ? 'Em andamento'
-                      : quest.status === 'done'
-                        ? 'Concluida'
-                        : quest.status === 'failed'
-                          ? 'Falhou'
-                          : quest.status
-                const statusClass =
-                  quest.status === 'open'
-                    ? 'open'
-                    : quest.status === 'in_progress'
-                      ? 'progress'
-                      : quest.status === 'done'
-                        ? 'done'
-                        : quest.status === 'failed'
-                          ? 'failed'
-                          : 'open'
-                return (
-                  <li key={quest.id} className="quest-item">
-                    <div className="quest-main">
-                      <span className={`quest-status ${statusClass}`}>{statusLabel}</span>
-                      <strong>{quest.title}</strong>
-                    </div>
-                    <div className="quest-actions">
-                      <button
-                        className="quest-icon-btn"
-                        onClick={() => startViewQuest(quest)}
-                        aria-label="Ver detalhes"
-                        title="Detalhes"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6Z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                      </button>
-                      <button
-                        className="quest-icon-btn"
-                        onClick={() => startEditQuest(quest)}
-                        aria-label="Editar quest"
-                        title="Editar"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M4 20h4l10-10-4-4L4 16v4Z" />
-                          <path d="M13 7l4 4" />
-                        </svg>
-                      </button>
-                      <button
-                        className="quest-icon-btn danger"
-                        onClick={() => handleDeleteQuest(quest.id)}
-                        aria-label="Remover quest"
-                        title="Remover"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4h8v2" />
-                          <path d="M6 6l1 14h10l1-14" />
-                          <path d="M10 11v6" />
-                          <path d="M14 11v6" />
-                        </svg>
-                      </button>
-                    </div>
-                  </li>
-                )
-              })
-            )}
-          </ul>
-          <button className="btn-secondary small" onClick={startCreateQuest}>
-            + Adicionar quest
-          </button>
-
-          {isQuestModalOpen && (
-            <div className="modal-overlay" onClick={() => setIsQuestModalOpen(false)}>
-              <div className="modal" onClick={(event) => event.stopPropagation()}>
-                <div className="modal-header">
-                  <h4>{editingQuestId ? (isQuestReadOnly ? 'Detalhes da quest' : 'Editar quest') : 'Nova quest'}</h4>
-                  <button className="modal-close" onClick={() => setIsQuestModalOpen(false)}>
-                    ✕
-                  </button>
-                </div>
-                <div className="player-form">
-                  <div className="player-form-section">
-                    <h5>Dados da quest</h5>
-                    <div className="player-form-grid">
-                      <label className="field">
-                        <span>Titulo</span>
-                        <input
-                          type="text"
-                          value={questForm.title}
-                          readOnly={isQuestReadOnly}
-                          onChange={(event) => setQuestForm({ ...questForm, title: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Status</span>
-                        <select
-                          value={questForm.status}
-                          disabled={isQuestReadOnly}
-                          onChange={(event) => setQuestForm({ ...questForm, status: event.target.value })}
-                        >
-                          <option value="open">Em aberto</option>
-                          <option value="in_progress">Em andamento</option>
-                          <option value="done">Concluida</option>
-                          <option value="failed">Falhou</option>
-                        </select>
-                      </label>
-                      <label className="field">
-                        <span>Objetivo</span>
-                        <input
-                          type="text"
-                          value={questForm.objective}
-                          readOnly={isQuestReadOnly}
-                          onChange={(event) => setQuestForm({ ...questForm, objective: event.target.value })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Recompensa</span>
-                        <input
-                          type="text"
-                          value={questForm.reward}
-                          readOnly={isQuestReadOnly}
-                          onChange={(event) => setQuestForm({ ...questForm, reward: event.target.value })}
-                        />
-                      </label>
-                    </div>
-                  </div>
-                  <div className="player-form-section">
-                    <h5>Notas</h5>
-                    <label className="field">
-                      <span>Observações</span>
-                      <textarea
-                        value={questForm.notes}
-                        readOnly={isQuestReadOnly}
-                        onChange={(event) => setQuestForm({ ...questForm, notes: event.target.value })}
-                      />
-                    </label>
-                  </div>
-                  <div className="player-form-actions">
-                    <button className="btn-secondary" onClick={() => setIsQuestModalOpen(false)}>
-                      {isQuestReadOnly ? 'Fechar' : 'Cancelar'}
-                    </button>
-                    {!isQuestReadOnly && (
-                      <button className="btn-primary" onClick={handleSaveQuest}>
-                        {editingQuestId ? 'Salvar' : 'Criar'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </article>
-
-        <article className="dashboard-card dice">
-          <header>
-            <h3>Rolador de dados</h3>
-          </header>
-          <DiceRoller />
-        </article>
-
-        {/* Tracker de Combate/Iniciativa */}
-        <article className="dashboard-card combat-tracker">
-          <header>
-            <h3>Tracker de Combate</h3>
-            <div className="combat-tracker-header-actions">
-              <button
-                className="action-icon-btn initiative"
-                onClick={openCustomInitiative}
-                title="Adicionar criatura ou NPC"
-                aria-label="Adicionar criatura ou NPC"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 5v14" />
-                  <path d="M5 12h14" />
-                </svg>
-              </button>
-              {initiativeList.length > 0 && (
-                <button className="btn-secondary small danger" onClick={resetCombat}>
-                  Encerrar Combate
-                </button>
-              )}
-            </div>
-          </header>
-          
-          {initiativeList.length === 0 ? (
-            <div className="combat-tracker-empty">
-              <p>Nenhuma criatura na iniciativa.</p>
-              <p className="text-muted">
-                Use os botões de espada nos cards de personagens, nos monstros fixados ou na lista de criaturas para adicionar participantes ao combate.
-              </p>
-            </div>
-          ) : (
-            <div className="combat-tracker-content">
-              <div className="combat-tracker-controls">
-                <button className="btn-secondary small" onClick={previousTurn} disabled={initiativeList.length === 0}>
-                  ← Anterior
-                </button>
-                <span className="combat-tracker-round">
-                  Turno de: <strong>{initiativeList[currentTurnIndex]?.name || '-'}</strong>
-                </span>
-                <button className="btn-secondary small" onClick={nextTurn} disabled={initiativeList.length === 0}>
-                  Próximo →
-                </button>
-              </div>
-              <div className="combat-tracker-encounters">
-                <select
-                  value={selectedEncounterId}
-                  onChange={(event) => setSelectedEncounterId(event.target.value)}
-                  aria-label="Selecionar encontro salvo"
-                >
-                  <option value="">Encontros salvos...</option>
-                  {turnMonitor.encounters.map((encounter) => (
-                    <option key={encounter.id} value={encounter.id}>
-                      {encounter.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="btn-secondary small"
-                  onClick={loadEncounter}
-                  disabled={!selectedEncounter}
-                >
-                  Carregar
-                </button>
-                <button
-                  className="btn-secondary small"
-                  onClick={openCreateEncounter}
-                  disabled={initiativeList.length === 0}
-                >
-                  Salvar
-                </button>
-                <button
-                  className="btn-secondary small"
-                  onClick={openUpdateEncounter}
-                  disabled={!selectedEncounter || initiativeList.length === 0}
-                >
-                  Atualizar
-                </button>
-                <button
-                  className="btn-secondary small danger"
-                  onClick={removeEncounter}
-                  disabled={!selectedEncounter}
-                >
-                  Remover
-                </button>
-              </div>
-              
-              <div className="combat-tracker-list">
-                {initiativeList.map((entry, index) => {
-                  const isDead = isEntryDead(entry)
-                  const monsterSource = entry.monsterData || srdMonsters.find((monster) => monster.name === entry.name)
-                  const canOpenStats = Boolean(monsterSource)
-                  const canDuplicate = Boolean(entry.side) || entry.type === 'monster'
-                  return (
-                    <div
-                      key={entry.id}
-                      className={`combat-tracker-entry ${index === currentTurnIndex ? 'active' : ''} ${entry.type} ${isDead ? 'dead' : ''}`}
-                    >
-                    <div className="combat-tracker-entry-initiative">
-                      <input
-                        className="initiative-input"
-                        type="number"
-                        value={entry.initiative}
-                        min={0}
-                        onChange={(event) => {
-                          const nextValue = Number(event.target.value)
-                          if (Number.isNaN(nextValue)) return
-                          updateInitiativeValue(entry.id, nextValue)
-                        }}
-                        aria-label={`Iniciativa de ${entry.name}`}
-                      />
-                    </div>
-                    <div className="combat-tracker-entry-info">
-                      <div className="combat-tracker-entry-name">
-                        {entry.name}
-                        {isDead && (
-                          <span className="combat-tracker-entry-dead">Morto</span>
-                        )}
-                        <span className={`combat-tracker-entry-type ${entry.type}`}>
-                          {getInitiativeTypeLabel(entry)}
-                        </span>
-                      </div>
-                      {(entry.hp !== undefined && entry.maxHp !== undefined) && (
-                        <div className="combat-tracker-entry-stats">
-                          <div className="combat-tracker-hp">
-                            <span>PV: {entry.hp}/{entry.maxHp}</span>
-                            <div className="combat-tracker-hp-controls">
-                              <button
-                                className="combat-hp-btn"
-                                onClick={() => openHpAdjust(entry, 'sub')}
-                                aria-label="Reduzir PV"
-                              >
-                                -
-                              </button>
-                              <button
-                                className="combat-hp-btn"
-                                onClick={() => openHpAdjust(entry, 'add')}
-                                aria-label="Aumentar PV"
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-                          {entry.ac !== undefined && (
-                            <span className="combat-tracker-ac">CA: {entry.ac}</span>
-                          )}
-                        </div>
-                      )}
-                      <div className="combat-tracker-condition">
-                        <select
-                          value={entry.condition ?? ''}
-                          onChange={(event) => updateInitiativeCondition(entry.id, event.target.value)}
-                          aria-label={`Condição de ${entry.name}`}
-                        >
-                          <option value="">Sem condição</option>
-                          {CONDITION_OPTIONS.map((condition) => (
-                            <option key={condition} value={condition}>
-                              {condition}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div className="combat-tracker-entry-actions">
-                      {canOpenStats && monsterSource && (
-                        <button
-                          className="action-icon-btn"
-                          onClick={(event) => openMonsterStats(monsterSource, event)}
-                          title="Abrir estatisticas"
-                          aria-label="Abrir estatisticas"
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M12 16v-4M12 8h.01" />
-                          </svg>
-                        </button>
-                      )}
-                      {canDuplicate && (
-                        <button
-                          className="action-icon-btn"
-                          onClick={() => duplicateInitiativeEntry(entry)}
-                          title="Duplicar entrada"
-                          aria-label="Duplicar entrada"
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M8 8h10v10H8z" />
-                            <path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                          </svg>
-                        </button>
-                      )}
-                      <button
-                        className="action-icon-btn danger"
-                        onClick={() => removeFromInitiative(entry.id)}
-                        title="Remover da iniciativa"
-                        aria-label="Remover da iniciativa"
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M18 6L6 18M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </article>
-
-        {/* Modal para adicionar à iniciativa */}
-        {isAddingToInitiative && initiativeTargetEntry && (
-          <div className="modal-overlay" onClick={() => setIsAddingToInitiative(false)}>
-            <div className="modal modal-small" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h4>Adicionar à Iniciativa</h4>
-                <button className="modal-close" onClick={() => setIsAddingToInitiative(false)}>
-                  ✕
-                </button>
-              </div>
-              <div className="initiative-modal-content">
-                <p>
-                  <strong>{initiativeTargetEntry.name}</strong>
-                  <span className={`combat-tracker-entry-type ${initiativeTargetEntry.type}`}>
-                    {initiativeTargetEntry.type === 'player' ? 'Jogador' : 'Criatura'}
-                  </span>
-                </p>
-                <label className="field">
-                  <span>Valor da Iniciativa</span>
-                  <input
-                    type="number"
-                    value={initiativeInputValue}
-                    onChange={(e) => setInitiativeInputValue(e.target.value)}
-                    placeholder="Ex: 15"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') addToInitiative()
-                    }}
-                  />
-                </label>
-                <div className="initiative-modal-actions">
-                  <button className="btn-secondary" onClick={() => setIsAddingToInitiative(false)}>
-                    Cancelar
-                  </button>
-                  <button 
-                    className="btn-primary" 
-                    onClick={addToInitiative}
-                    disabled={initiativeInputValue === '' || isNaN(parseInt(initiativeInputValue, 10))}
-                  >
-                    Adicionar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isEncounterSaveOpen && (
-          <div className="modal-overlay" onClick={() => setIsEncounterSaveOpen(false)}>
-            <div className="modal modal-small" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h4>{encounterSaveMode === 'create' ? 'Salvar encontro' : 'Atualizar encontro'}</h4>
-                <button className="modal-close" onClick={() => setIsEncounterSaveOpen(false)}>
-                  ✕
-                </button>
-              </div>
-              <div className="initiative-modal-content">
-                <label className="field">
-                  <span>Nome do encontro</span>
-                  <input
-                    type="text"
-                    value={encounterNameInput}
-                    onChange={(event) => setEncounterNameInput(event.target.value)}
-                    placeholder="Ex: Emboscada na ponte"
-                    autoFocus
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') saveEncounter()
-                    }}
-                  />
-                </label>
-                <div className="initiative-modal-actions">
-                  <button className="btn-secondary" onClick={() => setIsEncounterSaveOpen(false)}>
-                    Cancelar
-                  </button>
-                  <button
-                    className="btn-primary"
-                    onClick={saveEncounter}
-                    disabled={encounterNameInput.trim() === '' || initiativeList.length === 0}
-                  >
-                    {encounterSaveMode === 'create' ? 'Salvar' : 'Atualizar'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isHpAdjustOpen && hpAdjustTarget && (
-          <div className="modal-overlay" onClick={() => setIsHpAdjustOpen(false)}>
-            <div className="modal modal-small" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h4>{hpAdjustTarget.mode === 'sub' ? 'Subtrair PV' : 'Somar PV'}</h4>
-                <button className="modal-close" onClick={() => setIsHpAdjustOpen(false)}>
-                  ✕
-                </button>
-              </div>
-              <div className="initiative-modal-content">
-                <p>
-                  <strong>{hpAdjustTarget.name}</strong>
-                </p>
-                <label className="field">
-                  <span>Quantidade</span>
-                  <input
-                    type="number"
-                    min={1}
-                    value={hpAdjustValue}
-                    onChange={(event) => setHpAdjustValue(event.target.value)}
-                    placeholder="Ex: 4"
-                    autoFocus
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') applyHpAdjust()
-                    }}
-                  />
-                </label>
-                <div className="initiative-modal-actions">
-                  <button className="btn-secondary" onClick={() => setIsHpAdjustOpen(false)}>
-                    Cancelar
-                  </button>
-                  <button
-                    className="btn-primary"
-                    onClick={applyHpAdjust}
-                    disabled={hpAdjustValue === '' || isNaN(parseInt(hpAdjustValue, 10)) || parseInt(hpAdjustValue, 10) <= 0}
-                  >
-                    Aplicar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isCustomInitiativeOpen && (
-          <div className="modal-overlay" onClick={() => setIsCustomInitiativeOpen(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h4>Adicionar Criatura ou NPC</h4>
-                <button className="modal-close" onClick={() => setIsCustomInitiativeOpen(false)}>
-                  ✕
-                </button>
-              </div>
-              <div className="initiative-modal-content">
-                <label className="field">
-                  <span>Nome</span>
-                  <input
-                    type="text"
-                    value={customInitiativeForm.name}
-                    onChange={(event) =>
-                      setCustomInitiativeForm((prev) => ({ ...prev, name: event.target.value }))
-                    }
-                    placeholder="Ex: Goblin arqueiro"
-                    autoFocus
-                  />
-                </label>
-                <label className="field">
-                  <span>Valor da Iniciativa</span>
-                  <input
-                    type="number"
-                    value={customInitiativeForm.initiative}
-                    onChange={(event) =>
-                      setCustomInitiativeForm((prev) => ({ ...prev, initiative: event.target.value }))
-                    }
-                    placeholder="Ex: 14"
-                  />
-                </label>
-                <label className="field">
-                  <span>Vida</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={customInitiativeForm.hp}
-                    onChange={(event) =>
-                      setCustomInitiativeForm((prev) => ({ ...prev, hp: event.target.value }))
-                    }
-                    placeholder="Ex: 22"
-                  />
-                </label>
-                <label className="field">
-                  <span>CA</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={customInitiativeForm.ac}
-                    onChange={(event) =>
-                      setCustomInitiativeForm((prev) => ({ ...prev, ac: event.target.value }))
-                    }
-                    placeholder="Ex: 13"
-                  />
-                </label>
-                <label className="field">
-                  <span>Lado</span>
-                  <select
-                    value={customInitiativeForm.side}
-                    onChange={(event) =>
-                      setCustomInitiativeForm((prev) => ({
-                        ...prev,
-                        side: event.target.value as 'ally' | 'enemy'
-                      }))
-                    }
-                  >
-                    <option value="ally">Aliado</option>
-                    <option value="enemy">Inimigo</option>
-                  </select>
-                </label>
-                <div className="initiative-modal-actions">
-                  <button className="btn-secondary" onClick={() => setIsCustomInitiativeOpen(false)}>
-                    Cancelar
-                  </button>
-                  <button
-                    className="btn-primary"
-                    onClick={addCustomInitiative}
-                    disabled={
-                      customInitiativeForm.name.trim() === '' ||
-                      customInitiativeForm.initiative === '' ||
-                      customInitiativeForm.hp === '' ||
-                      customInitiativeForm.ac === '' ||
-                      isNaN(parseInt(customInitiativeForm.initiative, 10)) ||
-                      isNaN(parseInt(customInitiativeForm.hp, 10)) ||
-                      isNaN(parseInt(customInitiativeForm.ac, 10))
-                    }
-                  >
-                    Adicionar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <article className="dashboard-card music">
-          <header>
-            <h3>Ambiência sonora</h3>
-          </header>
-          <div className="music-controls">
-            <div className="music-controls-main">
-              <button className="btn-secondary small" onClick={togglePlay}>
-                {turnMonitor.music.isPlaying ? 'Pausar' : 'Tocar'}
-              </button>
-              <button className="btn-secondary small" onClick={stopPlayback}>
-                Parar
-              </button>
-              <div className="music-volume">
-                <span>Volume</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={turnMonitor.music.volume}
-                  onChange={(event) =>
-                    setTurnMonitor((prev) => ({
-                      ...prev,
-                      music: {
-                        ...prev.music,
-                        volume: Number(event.target.value)
-                      }
-                    }))
-                  }
-                />
-              </div>
-            </div>
-            <label className="music-auto">
-              <input
-                type="checkbox"
-                checked={turnMonitor.music.autoMode}
-                onChange={(event) =>
-                  setTurnMonitor((prev) => ({
-                    ...prev,
-                    music: {
-                      ...prev.music,
-                      autoMode: event.target.checked
-                    }
-                  }))
-                }
-              />
-              <span>Trocar por voz (ex: "rola a iniciativa")</span>
-            </label>
-          </div>
-          <div className="music-grid">
-            {MUSIC_CATEGORIES.map((category) => {
-              const tracks = turnMonitor.music.categories[category.id]
-              return (
-                <div
-                  key={category.id}
-                  className={`music-card ${turnMonitor.music.activeCategoryId === category.id ? 'active' : ''} ${dragMusicCategoryId === category.id ? 'is-drop-target' : ''}`}
-                  onDragOver={(event) => {
-                    event.preventDefault()
-                    event.dataTransfer.dropEffect = 'copy'
-                    setDragMusicCategoryId(category.id)
-                  }}
-                  onDragLeave={() => {
-                    setDragMusicCategoryId((prev) => (prev === category.id ? null : prev))
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault()
-                    setDragMusicCategoryId(null)
-                    if (event.dataTransfer?.files?.length) {
-                      addTracksFromDrop(category.id, event.dataTransfer.files)
-                    }
-                  }}
-                >
-                  <div className="music-card-header">
-                    <h4>{category.label}</h4>
-                    <button className="btn-secondary small" onClick={() => addTracksToCategory(category.id)}>
-                      Adicionar
-                    </button>
-                  </div>
-                  {dragMusicCategoryId === category.id && (
-                    <div className="music-drop-hint">Solte as musicas aqui</div>
-                  )}
-                  <div className="music-track-list">
-                    {tracks.length === 0 ? (
-                      <p className="text-muted">Nenhuma música adicionada.</p>
-                    ) : (
-                      tracks.map((track) => (
-                        <div key={track.id} className="music-track">
-                          <button
-                            className={`music-track-button ${turnMonitor.music.activeTrackId === track.id ? 'active' : ''}`}
-                            onClick={() => setActiveTrack(category.id, track.id)}
-                          >
-                            {track.name}
-                          </button>
-                          <button
-                            className="music-track-remove"
-                            onClick={() => removeTrack(category.id, track.id)}
-                            aria-label="Remover música"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </article>
-
-        <article className="dashboard-card turns">
-          <header>
-            <h3>Monitoramento de turnos</h3>
-            <div className="turns-header-actions">
-              <button className="btn-secondary small" onClick={() => saveTurnMonitor(turnMonitor)}>
-                Salvar
-              </button>
-              {turnMonitorStatusLabel && (
-                <span className={`turns-status ${turnMonitorStatus}`}>
-                  {turnMonitorStatusLabel}
-                </span>
-              )}
-            </div>
-          </header>
-          <div className="turns-grid">
-            <div className="turns-column">
-              <div className="turns-section">
-                <h4>Marcando turnos</h4>
-                <div className="turns-periods">
-                  {TURN_PERIODS.map((period) => (
-                    <div key={period.id} className="turns-period">
-                      <span>{period.label}</span>
-                      <div className="turns-slot-grid">
-                        <div className="turns-slot-row turns-slot-header-row">
-                          <span className="turns-slot-index" aria-hidden="true" />
-                          {TURN_COLUMNS.map((column) => (
-                            <span key={`${period.id}-head-${column}`} className="turns-slot-head" aria-hidden="true">
-                              {column}
-                            </span>
-                          ))}
-                        </div>
-                        {TURN_ROWS.map((row, rowIndex) => (
-                          <div key={`${period.id}-row-${row}`} className="turns-slot-row">
-                            <span className="turns-slot-index">{row}</span>
-                            {TURN_COLUMNS.map((column, columnIndex) => (
-                              <label key={`${period.id}-${row}-${column}`} className="turns-slot">
-                                <input
-                                  type="checkbox"
-                                  checked={turnMonitor.periods[period.id][rowIndex][columnIndex]}
-                                  onChange={(event) =>
-                                    updateTurnPeriod(period.id, rowIndex, columnIndex, event.target.checked)
-                                  }
-                                  aria-label={`${period.label} linha ${row} coluna ${column}`}
-                                />
-                              </label>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="turns-section">
-                <h4>Efeito e duração</h4>
-                <div className="turns-table effects">
-                  <div className="turns-table-row turns-table-header">
-                    <span>Efeito</span>
-                    <span>Duração</span>
-                  </div>
-                  {turnMonitor.effectRows.map((row, index) => (
-                    <div key={`effect-${index}`} className="turns-table-row">
-                      <input
-                        type="text"
-                        placeholder="Efeito"
-                        value={row.effect}
-                        onChange={(event) => updateEffectRow(index, 'effect', event.target.value)}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Duração"
-                        value={row.duration}
-                        onChange={(event) => updateEffectRow(index, 'duration', event.target.value)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="turns-section">
-                <h4>Ordem de marcha</h4>
-                <textarea
-                  className="turns-textarea"
-                  placeholder="Anote a ordem do grupo"
-                  rows={6}
-                  value={turnMonitor.orderOfMarch}
-                  onChange={(event) =>
-                    setTurnMonitor((prev) => ({ ...prev, orderOfMarch: event.target.value }))
-                  }
-                />
-              </div>
-
-              <div className="turns-section">
-                <h4>Ordem de vigília</h4>
-                <textarea
-                  className="turns-textarea"
-                  placeholder="Anote as guardas da noite"
-                  rows={6}
-                  value={turnMonitor.orderOfWatch}
-                  onChange={(event) =>
-                    setTurnMonitor((prev) => ({ ...prev, orderOfWatch: event.target.value }))
-                  }
-                />
-              </div>
-
-            </div>
-
-            <div className="turns-column">
-              <div className="turns-section">
-                <h4>Marcando turnos</h4>
-                <ol className="turns-list">
-                  <li>Marque a cada ação do grupo ou 10 min.</li>
-                  <li>Role encontros no turno indicado.</li>
-                  <li>Descreva o local.</li>
-                  <li>Verifique percepção se necessário.</li>
-                  <li>Resolva ações e marque deslocamento.</li>
-                </ol>
-              </div>
-
-              <div className="turns-section">
-                <h4>Rolagem de encontros</h4>
-                <ol className="turns-list">
-                  <li>Role 1d6. 1 = encontro.</li>
-                  <li>Se for encontro, role na tabela.</li>
-                  <li>Role a distância (1d6 x 3m).</li>
-                  <li>Teste a reação dos adversários.</li>
-                  <li>Se couber, determine surpresa.</li>
-                </ol>
-              </div>
-
-              <div className="turns-section">
-                <h4>Ações em masmorras</h4>
-                <div className="turns-actions">
-                  {DUNGEON_ACTIONS.map((action, index) => (
-                    <label key={action} className="turns-action">
-                      <input
-                        type="checkbox"
-                        checked={turnMonitor.actions[index]}
-                        onChange={(event) => updateTurnAction(index, event.target.checked)}
-                      />
-                      <span>{action}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="turns-section">
-                <h4>Tabela de reações (2d6)</h4>
-                <div className="turns-table reactions">
-                  <div className="turns-table-row turns-table-header">
-                    <span>2d6</span>
-                    <span>Reação</span>
-                  </div>
-                  {REACTION_TABLE.map((row) => (
-                    <div key={row.roll} className="turns-table-row">
-                      <span>{row.roll}</span>
-                      <span>{row.result}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="turns-section">
-                <h4>Tempo</h4>
-                <ul className="turns-meta">
-                  <li><strong>Rodada:</strong> 10 segundos</li>
-                  <li><strong>Turno:</strong> 10 minutos</li>
-                  <li><strong>Minuto:</strong> 6 rodadas</li>
-                  <li><strong>Hora:</strong> 6 turnos</li>
-                </ul>
-              </div>
-
-              <div className="turns-section">
-                <h4>Durações comuns</h4>
-                <ul className="turns-meta">
-                  <li><strong>Tocha (9m):</strong> 6 turnos (1 hora)</li>
-                  <li><strong>Lanterna (9m):</strong> 24 turnos (4 horas)</li>
-                  <li><strong>Vela (1m):</strong> 6 turnos (1 hora)</li>
-                </ul>
-              </div>
-
-                            <div className="turns-section">
-                <h4>Controle de PV</h4>
-                <div className="turns-table pv">
-                  <div className="turns-table-row turns-table-header">
-                    <span>Criatura</span>
-                    <span></span>
-                    <span></span>
-                    <span>CA</span>
-                    <span>PV máx</span>
-                    <span>PV atual</span>
-                  </div>
-                  {turnMonitor.pvRows.map((row, index) => {
-                    const selectedMonster = srdMonsters.find((m) => m.name === row.name)
-                    return (
-                      <div key={`pv-${index}`} className="turns-table-row pv-row">
-                        <div className="pv-creature-select-wrapper">
-                          <select
-                            value={row.name}
-                            onChange={(event) => {
-                              const monsterName = event.target.value
-                              updatePvRow(index, 'name', monsterName)
-                              const monster = srdMonsters.find((m) => m.name === monsterName)
-                              if (monster) {
-                                updatePvRow(index, 'max', String(monster.hit_points))
-                                updatePvRow(index, 'current', String(monster.hit_points))
-                              }
-                            }}
-                          >
-                            <option value="">Selecione...</option>
-                            {srdMonsters.map((monster) => (
-                              <option key={monster.index} value={monster.name}>
-                                {monster.name} (CR {monster.challenge_rating})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <button
-                          className="pv-view-stats-btn"
-                          onClick={(e) => {
-                            if (selectedMonster) {
-                              openMonsterStats(selectedMonster, e)
-                            }
-                          }}
-                          disabled={!selectedMonster}
-                          title={selectedMonster ? 'Ver estatísticas' : 'Selecione uma criatura'}
-                          aria-label="Ver estatísticas da criatura"
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M12 16v-4M12 8h.01" />
-                          </svg>
-                        </button>
-                        <button
-                          className="pv-add-initiative-btn"
-                          onClick={() => {
-                            if (!selectedMonster) return
-                            const maxHpValue = Number(row.max)
-                            const currentHpValue = Number(row.current)
-                            const fallbackHp = selectedMonster.hit_points
-                            const resolvedMaxHp = Number.isFinite(maxHpValue) && maxHpValue > 0 ? maxHpValue : fallbackHp
-                            const resolvedCurrentHp = Number.isFinite(currentHpValue) && currentHpValue >= 0
-                              ? Math.min(currentHpValue, resolvedMaxHp)
-                              : resolvedMaxHp
-                            openAddToInitiative({
-                              type: 'monster',
-                              name: selectedMonster.name,
-                              monsterData: selectedMonster,
-                              hp: resolvedCurrentHp,
-                              maxHp: resolvedMaxHp,
-                              ac: selectedMonster.armor_class[0]?.value
-                            })
-                          }}
-                          disabled={!selectedMonster}
-                          title={selectedMonster ? 'Adicionar à iniciativa' : 'Selecione uma criatura'}
-                          aria-label="Adicionar criatura à iniciativa"
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
-                            <path d="M13 19l6-6 2 2-6 6-2-2z" />
-                            <path d="M19 13l2-2-6-6-2 2" />
-                          </svg>
-                        </button>
-                        <span className="pv-ac-value">
-                          {selectedMonster?.armor_class[0]?.value ?? '-'}
-                        </span>
-                        <input
-                          type="number"
-                          min={0}
-                          placeholder="0"
-                          value={row.max}
-                          onChange={(event) => updatePvRow(index, 'max', event.target.value)}
-                        />
-                        <input
-                          type="number"
-                          min={0}
-                          placeholder="0"
-                          value={row.current}
-                          onChange={(event) => updatePvRow(index, 'current', event.target.value)}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-              <div className="turns-section">
-                <h4>Tabela de monstros errantes</h4>
-                <div className="turns-table monsters">
-                  <div className="turns-table-row turns-table-header">
-                    <span>Grupo</span>
-                    <span>Área</span>
-                    <span>Notas</span>
-                  </div>
-                  {turnMonitor.monsterRows.map((row, index) => (
-                    <div key={`monster-${index}`} className="turns-table-row">
-                      <input
-                        type="text"
-                        placeholder="Grupo"
-                        value={row.group}
-                        onChange={(event) => updateMonsterRow(index, 'group', event.target.value)}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Área"
-                        value={row.area}
-                        onChange={(event) => updateMonsterRow(index, 'area', event.target.value)}
-                      />
-                      <input
-                        type="text"
-                        placeholder="Notas"
-                        value={row.notes}
-                        onChange={(event) => updateMonsterRow(index, 'notes', event.target.value)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              
-            </div>
-
-            <div className="turns-column">
-              <div className="turns-section">
-                <h4>Tabela de encontros (1d10)</h4>
-                <div className="turns-encounter-controls">
-                  <div className="turns-encounter-selects">
-                    <label className="turns-select">
-                      <span>Ambiente</span>
-                      <select
-                        value={turnMonitor.encounterEnvironment}
-                        onChange={(event) =>
-                          setTurnMonitor((prev) => ({
-                            ...prev,
-                            encounterEnvironment: event.target.value as EncounterEnvironment
-                          }))
-                        }
-                      >
-                        {ENCOUNTER_ENVIRONMENTS.map((environment) => (
-                          <option key={environment.id} value={environment.id}>
-                            {environment.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="turns-select">
-                      <span>Dificuldade</span>
-                      <select
-                        value={turnMonitor.encounterDifficulty}
-                        onChange={(event) =>
-                          setTurnMonitor((prev) => ({
-                            ...prev,
-                            encounterDifficulty: event.target.value as EncounterDifficulty
-                          }))
-                        }
-                      >
-                        {ENCOUNTER_DIFFICULTIES.map((difficulty) => (
-                          <option key={difficulty.id} value={difficulty.id}>
-                            {difficulty.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  <div className="turns-encounter-buttons">
-                    <button className="btn-secondary small" onClick={fillEncounterTable}>
-                      Preencher 1d10
-                    </button>
-                    <button className="btn-secondary small" onClick={fillEncounterTable20}>
-                      Preencher 1d20
-                    </button>
-                  </div>
-                </div>
-                <div className="turns-table encounters">
-                  <div className="turns-table-row turns-table-header">
-                    <span>1d10</span>
-                    <span>Encontro</span>
-                  </div>
-                  {ENCOUNTER_ROLLS.map((roll, index) => (
-                    <div key={roll} className="turns-table-row">
-                      <span>{roll}</span>
-                      <input
-                        type="text"
-                        placeholder="Descreva o encontro"
-                        value={turnMonitor.encounterTable[index]}
-                        onChange={(event) => updateEncounterTable(index, event.target.value)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="turns-section">
-                <h4>Tabela de encontros aleatórios (1d20)</h4>
-                <div className="turns-table encounters">
-                  <div className="turns-table-row turns-table-header">
-                    <span>1d20</span>
-                    <span>Evento</span>
-                  </div>
-                  {ENCOUNTER_ROLLS_20.map((roll, index) => (
-                    <div key={roll} className="turns-table-row">
-                      <span>{roll}</span>
-                      <input
-                        type="text"
-                        placeholder="Descreva o evento"
-                        value={turnMonitor.encounterTable20[index]}
-                        onChange={(event) => updateEncounterTable20(index, event.target.value)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              
-            </div>
-          </div>
-        </article>
-
-        <article className="dashboard-card notes">
-          <header>
-            <h3>Anotações do mestre</h3>
-          </header>
-          <div className="note-box">
-            {masterNote?.content ? (
-              <pre className="master-note-preview">{masterNote.content}</pre>
-            ) : (
-              <p className="text-muted">Nenhuma anotação salva.</p>
-            )}
-          </div>
-          <button className="btn-secondary small" onClick={openMasterNote}>
-            {masterNote?.content ? 'Editar anotações' : 'Adicionar anotações'}
-          </button>
-
-          {isMasterNoteOpen && (
-            <div className="modal-overlay" onClick={() => setIsMasterNoteOpen(false)}>
-              <div className="modal" onClick={(event) => event.stopPropagation()}>
-                <div className="modal-header">
-                  <h4>Anotações do mestre</h4>
-                  <button className="modal-close" onClick={() => setIsMasterNoteOpen(false)}>
-                    ✕
-                  </button>
-                </div>
-                <div className="player-form">
-                  <div className="player-form-section">
-                    <label className="field">
-                      <textarea
-                        className="master-note-textarea"
-                        value={masterNoteContent}
-                        onChange={(event) => setMasterNoteContent(event.target.value)}
-                      />
-                    </label>
-                  </div>
-                  <div className="player-form-actions">
-                    <button className="btn-secondary" onClick={() => setIsMasterNoteOpen(false)}>
-                      Cancelar
-                    </button>
-                    <button className="btn-primary" onClick={handleSaveMasterNote}>
-                      Salvar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </article>
-
-        <article className="dashboard-card next">
-          <header>
-            <h3>Próxima sessão</h3>
-          </header>
-          <div className="checklist">
-            <label><input type="checkbox" /> Revisar encontros</label>
-            <label><input type="checkbox" /> Preparar mapa</label>
-            <label><input type="checkbox" /> Atualizar NPCs</label>
-            <label><input type="checkbox" /> Separar trilha sonora</label>
-          </div>
-        </article>
+        <NextSessionChecklist />
       </section>
 
       {/* Janelas flutuantes fixadas (persistentes e arrastáveis) */}
-      {pinnedMonsters.map((pinned) => (
-        <div 
-          key={pinned.id}
-          className="monster-tooltip monster-tooltip-pinned"
-          style={{
-            left: pinned.position.x,
-            top: pinned.position.y
-          }}
-        >
-          <div 
-            className="monster-tooltip-drag-header"
-            onMouseDown={(e) => {
-              e.preventDefault()
-              setDraggingMonsterId(pinned.id)
-              setDragOffset({
-                x: e.clientX - pinned.position.x,
-                y: e.clientY - pinned.position.y
-              })
-            }}
-          >
-            <span className="monster-tooltip-drag-title">Estatísticas</span>
-            <div className="monster-tooltip-header-actions">
-              <button 
-                className={`monster-tooltip-initiative ${isMonsterInInitiative(pinned.monster.name) ? 'in-combat' : ''}`}
-                onClick={() => openAddToInitiative({
-                  type: 'monster',
-                  name: pinned.monster.name,
-                  monsterData: pinned.monster,
-                  hp: pinned.monster.hit_points,
-                  maxHp: pinned.monster.hit_points,
-                  ac: pinned.monster.armor_class[0]?.value
-                })}
-                title={isMonsterInInitiative(pinned.monster.name) ? 'Adicionar outro à iniciativa' : 'Adicionar à iniciativa'}
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M14.5 17.5L3 6V3h3l11.5 11.5" />
-                  <path d="M13 19l6-6 2 2-6 6-2-2z" />
-                  <path d="M19 13l2-2-6-6-2 2" />
-                </svg>
-              </button>
-              <button 
-                className="monster-tooltip-close"
-                onClick={() => setPinnedMonsters(prev => prev.filter(p => p.id !== pinned.id))}
-                title="Fechar"
-              >
-                &times;
-              </button>
-            </div>
-          </div>
-          <div className="monster-tooltip-body">
-            {pinned.monster.image && monsterImageCache[pinned.monster.image] && (
-              <div className="monster-tooltip-image">
-                <img 
-                  src={monsterImageCache[pinned.monster.image]!} 
-                  alt={pinned.monster.name}
-                />
-              </div>
-            )}
-            <div className="monster-tooltip-header">
-              <strong>{pinned.monster.name}</strong>
-              <span className="monster-cr">CR {pinned.monster.challenge_rating}</span>
-            </div>
-            <div className="monster-tooltip-meta">
-              {translateSize(pinned.monster.size)} {translateType(pinned.monster.type)}, {translateAlignment(pinned.monster.alignment)}
-            </div>
-            <div className="monster-tooltip-stats">
-              <div className="monster-stat-row">
-                <span><strong>CA:</strong> {pinned.monster.armor_class[0]?.value}</span>
-                <span><strong>PV:</strong> {pinned.monster.hit_points} ({pinned.monster.hit_dice})</span>
-              </div>
-              <div className="monster-stat-row">
-                <span><strong>Deslocamento:</strong> {Object.entries(pinned.monster.speed).map(([k, v]) => `${translateSpeed(k)} ${v}`).join(', ')}</span>
-              </div>
-            </div>
-            <div className="monster-tooltip-abilities">
-              <span><strong>FOR:</strong> {pinned.monster.strength} <span className="ability-mod-badge">{formatMod(getAbilityMod(pinned.monster.strength))}</span></span>
-              <span><strong>DES:</strong> {pinned.monster.dexterity} <span className="ability-mod-badge">{formatMod(getAbilityMod(pinned.monster.dexterity))}</span></span>
-              <span><strong>CON:</strong> {pinned.monster.constitution} <span className="ability-mod-badge">{formatMod(getAbilityMod(pinned.monster.constitution))}</span></span>
-              <span><strong>INT:</strong> {pinned.monster.intelligence} <span className="ability-mod-badge">{formatMod(getAbilityMod(pinned.monster.intelligence))}</span></span>
-              <span><strong>SAB:</strong> {pinned.monster.wisdom} <span className="ability-mod-badge">{formatMod(getAbilityMod(pinned.monster.wisdom))}</span></span>
-              <span><strong>CAR:</strong> {pinned.monster.charisma} <span className="ability-mod-badge">{formatMod(getAbilityMod(pinned.monster.charisma))}</span></span>
-            </div>
-            {pinned.monster.damage_immunities.length > 0 && (
-              <div className="monster-tooltip-info">
-                <strong>Imunidades:</strong> {pinned.monster.damage_immunities.map(translateDamageType).join(', ')}
-              </div>
-            )}
-            {pinned.monster.damage_resistances.length > 0 && (
-              <div className="monster-tooltip-info">
-                <strong>Resistências:</strong> {pinned.monster.damage_resistances.map(translateDamageType).join(', ')}
-              </div>
-            )}
-            {pinned.monster.damage_vulnerabilities.length > 0 && (
-              <div className="monster-tooltip-info">
-                <strong>Vulnerabilidades:</strong> {pinned.monster.damage_vulnerabilities.map(translateDamageType).join(', ')}
-              </div>
-            )}
-            {pinned.monster.senses && (
-              <div className="monster-tooltip-info">
-                <strong>Sentidos:</strong> {Object.entries(pinned.monster.senses).map(([k, v]) => `${translateSense(k)} ${v}`).join(', ')}
-              </div>
-            )}
-            {pinned.monster.languages && (
-              <div className="monster-tooltip-info">
-                <strong>Idiomas:</strong> {pinned.monster.languages}
-              </div>
-            )}
-            {pinned.monster.special_abilities && pinned.monster.special_abilities.length > 0 && (
-              <div className="monster-tooltip-section">
-                <strong>Habilidades Especiais:</strong>
-                {pinned.monster.special_abilities.map((ability, i) => (
-                  <div key={i} className="monster-ability">
-                    <em>{translateAbilityName(ability.name)}:</em> {translateDescription(ability.desc)}
-                  </div>
-                ))}
-              </div>
-            )}
-            {pinned.monster.actions && pinned.monster.actions.length > 0 && (
-              <div className="monster-tooltip-section">
-                <strong>Ações:</strong>
-                {pinned.monster.actions.map((action, i) => (
-                  <div key={i} className="monster-ability">
-                    <em>{translateActionName(action.name)}:</em> {translateDescription(action.desc)}
-                  </div>
-                ))}
-              </div>
-            )}
-            {pinned.monster.reactions && pinned.monster.reactions.length > 0 && (
-              <div className="monster-tooltip-section">
-                <strong>Reações:</strong>
-                {pinned.monster.reactions.map((reaction, i) => (
-                  <div key={i} className="monster-ability">
-                    <em>{translateActionName(reaction.name)}:</em> {translateDescription(reaction.desc)}
-                  </div>
-                ))}
-              </div>
-            )}
-            {pinned.monster.legendary_actions && pinned.monster.legendary_actions.length > 0 && (
-              <div className="monster-tooltip-section">
-                <strong>Ações Lendárias:</strong>
-                {pinned.monster.legendary_actions.map((action, i) => (
-                  <div key={i} className="monster-ability">
-                    <em>{translateActionName(action.name)}:</em> {translateDescription(action.desc)}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
+      <PinnedMonsterWindows
+        pinnedMonsters={pinnedMonsters}
+        monsterImageCache={monsterImageCache}
+        isMonsterInInitiative={isMonsterInInitiative}
+        onAddToInitiative={handlePinnedMonsterAddToInitiative}
+        onClose={handlePinnedMonsterClose}
+        onStartDrag={handlePinnedMonsterDragStart}
+        formatMod={formatMod}
+        getAbilityMod={getAbilityMod}
+        translateSize={translateSize}
+        translateType={translateType}
+        translateAlignment={translateAlignment}
+        translateSpeed={translateSpeed}
+        translateSense={translateSense}
+        translateDamageType={translateDamageType}
+        translateAbilityName={translateAbilityName}
+        translateActionName={translateActionName}
+        translateDescription={translateDescription}
+      />
     </div>
   )
 }

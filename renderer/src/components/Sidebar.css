@@ -4,17 +4,60 @@
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
+  transition: width var(--transition-normal);
+}
+
+.sidebar.is-collapsed {
+  width: 72px;
 }
 
 .sidebar-header {
   padding: var(--spacing-lg);
   border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.sidebar.is-collapsed .sidebar-header {
+  padding: var(--spacing-md);
+  flex-direction: column;
 }
 
 .logo {
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.logo-text {
+  white-space: nowrap;
+}
+
+.sidebar.is-collapsed .logo-text {
+  display: none;
+}
+
+.sidebar-toggle {
+  font-size: 0.75rem;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  transition: all var(--transition-fast);
+}
+
+.sidebar-toggle svg {
+  display: block;
+}
+
+.sidebar-toggle:hover {
+  color: var(--text-primary);
+  background: var(--accent-subtle);
 }
 
 .sidebar-nav {
@@ -36,6 +79,11 @@
   position: relative;
 }
 
+.sidebar.is-collapsed .nav-item {
+  justify-content: center;
+  padding: var(--spacing-sm);
+}
+
 .nav-item:hover:not(:disabled) {
   background: var(--accent-subtle);
   color: var(--text-primary);
@@ -54,8 +102,39 @@
   font-size: 1.2rem;
 }
 
+.sidebar.is-collapsed .nav-icon {
+  font-size: 1.3rem;
+}
+
 .nav-label {
   font-size: 0.9rem;
+}
+
+.sidebar.is-collapsed .nav-label {
+  display: none;
+}
+
+.sidebar.is-collapsed .nav-item::after {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+  z-index: 2;
+}
+
+.sidebar.is-collapsed .nav-item:hover::after {
+  opacity: 1;
 }
 
 .recording-indicator {
@@ -65,6 +144,13 @@
   border-radius: 50%;
   margin-left: auto;
   animation: pulse 1.5s infinite;
+}
+
+.sidebar.is-collapsed .recording-indicator {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  margin-left: 0;
 }
 
 @keyframes pulse {
@@ -81,4 +167,8 @@
   font-size: 0.75rem;
   color: var(--text-muted);
   font-family: var(--font-mono);
+}
+
+.sidebar.is-collapsed .version {
+  display: none;
 }
