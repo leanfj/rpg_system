@@ -26,6 +26,8 @@ model Campaign {
   sessions  Session[]
   npcs      Npc[]
   quests    Quest[]
+  locations Location[]
+  storyEvents StoryEvent[]
   masterNotes MasterNote[]
   turnMonitor TurnMonitor?
   playerCharacters PlayerCharacter[]
@@ -74,9 +76,46 @@ model Quest {
   updatedAt DateTime @updatedAt
 
   campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sessionNotes SessionNoteQuest[]
 
   @@index([campaignId])
   @@map("quests")
+}
+
+/// Local de uma campanha
+model Location {
+  id          String   @id @default(cuid())
+  campaignId  String
+  name        String
+  description String?
+  status      String   @default("unknown") // unknown, safe, dangerous
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sessionNotes SessionNoteLocation[]
+  
+  @@index([campaignId])
+  @@map("locations")
+}
+
+/// Evento narrativo de uma campanha
+model StoryEvent {
+  id          String   @id @default(cuid())
+  campaignId  String
+  title       String
+  description String?
+  status      String   @default("active") // active, resolved, ignored
+  impact      String?  // short, medium, long
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sessionNotes SessionNoteEvent[]
+  
+  @@index([campaignId])
+  @@map("story_events")
 }
 
 /// Sessão de jogo - uma "partida" dentro de uma campanha
@@ -89,11 +128,13 @@ model Session {
   // Metadados
   title      String?   // Título opcional (ex: "Sessão 15 - A Torre do Mago")
   notes      String?   // Anotações manuais do mestre
+  status     String    @default("planned") // planned, in_progress, finished
   
   // Relacionamentos
   campaign    Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   transcripts TranscriptChunk[]
   events      Event[]
+  sessionNotes SessionNote[]
   
   @@map("sessions")
 }
@@ -147,6 +188,7 @@ model Npc {
   
   // Relacionamentos
   campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sessionNotes SessionNoteNpc[]
   
   @@index([campaignId])
   @@map("npcs")
@@ -199,7 +241,112 @@ model PlayerCharacter {
   updatedAt  DateTime @updatedAt
 
   campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  sessionNotes SessionNotePlayer[]
 
   @@index([campaignId])
   @@map("player_characters")
+}
+
+/// Nota de sessão (Antes, Durante ou Após sessão)
+model SessionNote {
+  id         String   @id @default(cuid())
+  sessionId  String
+  phase      String   // before, during, after
+  content    String
+  importance String   @default("normal") // normal, high
+  order      Int      @default(0) // Ordem dentro da fase
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relacionamentos
+  session  Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  npcs     SessionNoteNpc[]
+  players  SessionNotePlayer[]
+  quests   SessionNoteQuest[]
+  locations SessionNoteLocation[]
+  events   SessionNoteEvent[]
+
+  @@index([sessionId])
+  @@index([phase])
+  @@map("session_notes")
+}
+
+/// Conexão entre SessionNote e NPC
+model SessionNoteNpc {
+  id            String      @id @default(cuid())
+  sessionNoteId String
+  npcId         String
+  createdAt     DateTime    @default(now())
+
+  sessionNote SessionNote @relation(fields: [sessionNoteId], references: [id], onDelete: Cascade)
+  npc         Npc         @relation(fields: [npcId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionNoteId, npcId])
+  @@index([sessionNoteId])
+  @@index([npcId])
+  @@map("session_note_npcs")
+}
+
+/// Conexão entre SessionNote e PlayerCharacter
+model SessionNotePlayer {
+  id            String          @id @default(cuid())
+  sessionNoteId String
+  playerId      String
+  createdAt     DateTime        @default(now())
+
+  sessionNote SessionNote     @relation(fields: [sessionNoteId], references: [id], onDelete: Cascade)
+  player      PlayerCharacter @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionNoteId, playerId])
+  @@index([sessionNoteId])
+  @@index([playerId])
+  @@map("session_note_players")
+}
+
+/// Conexão entre SessionNote e Quest
+model SessionNoteQuest {
+  id            String      @id @default(cuid())
+  sessionNoteId String
+  questId       String
+  createdAt     DateTime    @default(now())
+
+  sessionNote SessionNote @relation(fields: [sessionNoteId], references: [id], onDelete: Cascade)
+  quest       Quest       @relation(fields: [questId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionNoteId, questId])
+  @@index([sessionNoteId])
+  @@index([questId])
+  @@map("session_note_quests")
+}
+
+/// Conexão entre SessionNote e Location
+model SessionNoteLocation {
+  id            String      @id @default(cuid())
+  sessionNoteId String
+  locationId    String
+  createdAt     DateTime    @default(now())
+
+  sessionNote SessionNote @relation(fields: [sessionNoteId], references: [id], onDelete: Cascade)
+  location    Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionNoteId, locationId])
+  @@index([sessionNoteId])
+  @@index([locationId])
+  @@map("session_note_locations")
+}
+
+/// Conexão entre SessionNote e StoryEvent
+model SessionNoteEvent {
+  id            String      @id @default(cuid())
+  sessionNoteId String
+  eventId       String
+  createdAt     DateTime    @default(now())
+
+  sessionNote SessionNote @relation(fields: [sessionNoteId], references: [id], onDelete: Cascade)
+  event       StoryEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionNoteId, eventId])
+  @@index([sessionNoteId])
+  @@index([eventId])
+  @@map("session_note_events")
 }

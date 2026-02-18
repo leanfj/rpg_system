@@ -249,6 +249,277 @@ ipcMain.handle('masterNotes:save', async (_event, data: {
   })
 })
 
+// === Locais ===
+ipcMain.handle('locations:getByCampaign', async (_event, campaignId: string) => {
+  return await db.location.findMany({
+    where: { campaignId },
+    orderBy: { createdAt: 'desc' }
+  })
+})
+
+ipcMain.handle('locations:create', async (_event, data: {
+  campaignId: string
+  name: string
+  description?: string
+  status?: string
+  notes?: string
+}) => {
+  return await db.location.create({ data })
+})
+
+ipcMain.handle('locations:update', async (_event, id: string, data: {
+  name: string
+  description?: string
+  status?: string
+  notes?: string
+}) => {
+  return await db.location.update({
+    where: { id },
+    data
+  })
+})
+
+ipcMain.handle('locations:delete', async (_event, id: string) => {
+  await db.location.delete({ where: { id } })
+  return true
+})
+
+// === Eventos narrativos ===
+ipcMain.handle('storyEvents:getByCampaign', async (_event, campaignId: string) => {
+  return await db.storyEvent.findMany({
+    where: { campaignId },
+    orderBy: { createdAt: 'desc' }
+  })
+})
+
+ipcMain.handle('storyEvents:create', async (_event, data: {
+  campaignId: string
+  title: string
+  description?: string
+  status?: string
+  impact?: string
+}) => {
+  return await db.storyEvent.create({ data })
+})
+
+ipcMain.handle('storyEvents:update', async (_event, id: string, data: {
+  title: string
+  description?: string
+  status?: string
+  impact?: string
+}) => {
+  return await db.storyEvent.update({
+    where: { id },
+    data
+  })
+})
+
+ipcMain.handle('storyEvents:delete', async (_event, id: string) => {
+  await db.storyEvent.delete({ where: { id } })
+  return true
+})
+
+// === Notas de sessao ===
+ipcMain.handle('sessionNotes:getBySession', async (_event, sessionId: string) => {
+  return await db.sessionNote.findMany({
+    where: { sessionId },
+    include: {
+      npcs: { include: { npc: true } },
+      players: { include: { player: true } },
+      quests: { include: { quest: true } },
+      locations: { include: { location: true } },
+      events: { include: { event: true } }
+    },
+    orderBy: [{ phase: 'asc' }, { order: 'asc' }]
+  })
+})
+
+ipcMain.handle('sessionNotes:create', async (_event, data: {
+  sessionId: string
+  phase: string
+  content: string
+  importance?: string
+  order?: number
+  connections?: {
+    npcIds?: string[]
+    playerIds?: string[]
+    questIds?: string[]
+    locationIds?: string[]
+    eventIds?: string[]
+  }
+}) => {
+  const { connections, ...noteData } = data
+  
+  const note = await db.sessionNote.create({
+    data: noteData,
+    include: {
+      npcs: { include: { npc: true } },
+      players: { include: { player: true } },
+      quests: { include: { quest: true } },
+      locations: { include: { location: true } },
+      events: { include: { event: true } }
+    }
+  })
+
+  // Cria conexoes
+  if (connections) {
+    if (connections.npcIds) {
+      await Promise.all(
+        connections.npcIds.map((npcId) =>
+          db.sessionNoteNpc.create({
+            data: { sessionNoteId: note.id, npcId }
+          })
+        )
+      )
+    }
+    if (connections.playerIds) {
+      await Promise.all(
+        connections.playerIds.map((playerId) =>
+          db.sessionNotePlayer.create({
+            data: { sessionNoteId: note.id, playerId }
+          })
+        )
+      )
+    }
+    if (connections.questIds) {
+      await Promise.all(
+        connections.questIds.map((questId) =>
+          db.sessionNoteQuest.create({
+            data: { sessionNoteId: note.id, questId }
+          })
+        )
+      )
+    }
+    if (connections.locationIds) {
+      await Promise.all(
+        connections.locationIds.map((locationId) =>
+          db.sessionNoteLocation.create({
+            data: { sessionNoteId: note.id, locationId }
+          })
+        )
+      )
+    }
+    if (connections.eventIds) {
+      await Promise.all(
+        connections.eventIds.map((eventId) =>
+          db.sessionNoteEvent.create({
+            data: { sessionNoteId: note.id, eventId }
+          })
+        )
+      )
+    }
+  }
+
+  // Retorna nota com conexoes
+  return await db.sessionNote.findUnique({
+    where: { id: note.id },
+    include: {
+      npcs: { include: { npc: true } },
+      players: { include: { player: true } },
+      quests: { include: { quest: true } },
+      locations: { include: { location: true } },
+      events: { include: { event: true } }
+    }
+  })
+})
+
+ipcMain.handle('sessionNotes:update', async (_event, id: string, data: {
+  content?: string
+  importance?: string
+  order?: number
+  connections?: {
+    npcIds?: string[]
+    playerIds?: string[]
+    questIds?: string[]
+    locationIds?: string[]
+    eventIds?: string[]
+  }
+}) => {
+  const { connections, ...noteData } = data
+
+  // Atualiza nota
+  await db.sessionNote.update({
+    where: { id },
+    data: noteData
+  })
+
+  // Atualiza conexoes se fornecidas
+  if (connections) {
+    // Remove conexoes antigas
+    await Promise.all([
+      db.sessionNoteNpc.deleteMany({ where: { sessionNoteId: id } }),
+      db.sessionNotePlayer.deleteMany({ where: { sessionNoteId: id } }),
+      db.sessionNoteQuest.deleteMany({ where: { sessionNoteId: id } }),
+      db.sessionNoteLocation.deleteMany({ where: { sessionNoteId: id } }),
+      db.sessionNoteEvent.deleteMany({ where: { sessionNoteId: id } })
+    ])
+
+    // Cria novas conexoes
+    if (connections.npcIds) {
+      await Promise.all(
+        connections.npcIds.map((npcId) =>
+          db.sessionNoteNpc.create({
+            data: { sessionNoteId: id, npcId }
+          })
+        )
+      )
+    }
+    if (connections.playerIds) {
+      await Promise.all(
+        connections.playerIds.map((playerId) =>
+          db.sessionNotePlayer.create({
+            data: { sessionNoteId: id, playerId }
+          })
+        )
+      )
+    }
+    if (connections.questIds) {
+      await Promise.all(
+        connections.questIds.map((questId) =>
+          db.sessionNoteQuest.create({
+            data: { sessionNoteId: id, questId }
+          })
+        )
+      )
+    }
+    if (connections.locationIds) {
+      await Promise.all(
+        connections.locationIds.map((locationId) =>
+          db.sessionNoteLocation.create({
+            data: { sessionNoteId: id, locationId }
+          })
+        )
+      )
+    }
+    if (connections.eventIds) {
+      await Promise.all(
+        connections.eventIds.map((eventId) =>
+          db.sessionNoteEvent.create({
+            data: { sessionNoteId: id, eventId }
+          })
+        )
+      )
+    }
+  }
+
+  // Retorna nota atualizada com conexoes
+  return await db.sessionNote.findUnique({
+    where: { id },
+    include: {
+      npcs: { include: { npc: true } },
+      players: { include: { player: true } },
+      quests: { include: { quest: true } },
+      locations: { include: { location: true } },
+      events: { include: { event: true } }
+    }
+  })
+})
+
+ipcMain.handle('sessionNotes:delete', async (_event, id: string) => {
+  await db.sessionNote.delete({ where: { id } })
+  return true
+})
+
 // === Midia ===
 ipcMain.handle('media:pickAudioFiles', async () => {
   const result = await dialog.showOpenDialog({

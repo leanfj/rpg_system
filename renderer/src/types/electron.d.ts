@@ -11,6 +11,9 @@ interface Session {
   campaignId: string
   startedAt: Date
   endedAt?: Date
+  title?: string
+  notes?: string
+  status: string // planned, in_progress, finished
 }
 
 interface SessionWithCampaign extends Session {
@@ -110,6 +113,44 @@ interface TurnMonitor {
   content: string
   createdAt: Date
   updatedAt: Date
+}
+
+interface Location {
+  id: string
+  campaignId: string
+  name: string
+  description?: string
+  status: string // unknown, safe, dangerous
+  notes?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+interface StoryEvent {
+  id: string
+  campaignId: string
+  title: string
+  description?: string
+  status: string // active, resolved, ignored
+  impact?: string // short, medium, long
+  createdAt: Date
+  updatedAt: Date
+}
+
+interface SessionNote {
+  id: string
+  sessionId: string
+  phase: string // before, during, after
+  content: string
+  importance: string // normal, high
+  order: number
+  createdAt: Date
+  updatedAt: Date
+  npcs?: Array<{ id: string; sessionNoteId: string; npcId: string; npc: NPC }>
+  players?: Array<{ id: string; sessionNoteId: string; playerId: string; player: PlayerCharacter }>
+  quests?: Array<{ id: string; sessionNoteId: string; questId: string; quest: Quest }>
+  locations?: Array<{ id: string; sessionNoteId: string; locationId: string; location: Location }>
+  events?: Array<{ id: string; sessionNoteId: string; eventId: string; event: StoryEvent }>
 }
 
 interface DmShieldOption {
@@ -230,6 +271,51 @@ interface ElectronAPI {
   turnMonitor: {
     getByCampaign: (campaignId: string) => Promise<TurnMonitor | null>
     save: (data: { campaignId: string; content: string }) => Promise<TurnMonitor>
+  }
+
+  locations: {
+    getByCampaign: (campaignId: string) => Promise<Location[]>
+    create: (data: Omit<Location, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Location>
+    update: (id: string, data: Omit<Location, 'id' | 'campaignId' | 'createdAt' | 'updatedAt'>) => Promise<Location>
+    delete: (id: string) => Promise<boolean>
+  }
+
+  storyEvents: {
+    getByCampaign: (campaignId: string) => Promise<StoryEvent[]>
+    create: (data: Omit<StoryEvent, 'id' | 'createdAt' | 'updatedAt'>) => Promise<StoryEvent>
+    update: (id: string, data: Omit<StoryEvent, 'id' | 'campaignId' | 'createdAt' | 'updatedAt'>) => Promise<StoryEvent>
+    delete: (id: string) => Promise<boolean>
+  }
+
+  sessionNotes: {
+    getBySession: (sessionId: string) => Promise<SessionNote[]>
+    create: (data: {
+      sessionId: string
+      phase: string
+      content: string
+      importance?: string
+      order?: number
+      connections?: {
+        npcIds?: string[]
+        playerIds?: string[]
+        questIds?: string[]
+        locationIds?: string[]
+        eventIds?: string[]
+      }
+    }) => Promise<SessionNote>
+    update: (id: string, data: {
+      content?: string
+      importance?: string
+      order?: number
+      connections?: {
+        npcIds?: string[]
+        playerIds?: string[]
+        questIds?: string[]
+        locationIds?: string[]
+        eventIds?: string[]
+      }
+    }) => Promise<SessionNote>
+    delete: (id: string) => Promise<boolean>
   }
 
   dmShield: {

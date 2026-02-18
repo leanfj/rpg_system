@@ -15,6 +15,7 @@ import NextSessionChecklist from './NextSessionChecklist'
 import PinnedMonsterWindows from './PinnedMonsterWindows'
 import PlayerPanel from './PlayerPanel'
 import QuestPanel from './QuestPanel'
+import SessionNotesPanel from './SessionNotesPanel'
 import TimelinePanel from './TimelinePanel'
 import TurnsPanel from './TurnsPanel'
 import XpReportPanel from './XpReportPanel'
@@ -103,6 +104,28 @@ interface Quest {
   objective?: string
   reward?: string
   notes?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+interface Location {
+  id: string
+  campaignId: string
+  name: string
+  description?: string
+  status: string
+  notes?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+interface StoryEvent {
+  id: string
+  campaignId: string
+  title: string
+  description?: string
+  status: string
+  impact?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -1364,6 +1387,8 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     players,
     npcs,
     quests,
+    locations,
+    storyEvents,
     masterNote,
     masterNoteContent,
     setMasterNoteContent,
@@ -1377,7 +1402,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     loadNpcs,
     loadQuests,
     saveTurnMonitor
-  } = useCampaignData<Campaign, Session, PlayerCharacter, NPC, Quest, MasterNote, TurnMonitorData>({
+  } = useCampaignData<Campaign, Session, PlayerCharacter, NPC, Quest, Location, StoryEvent, MasterNote, TurnMonitorData>({
     campaignId,
     createDefaultTurnMonitorData,
     normalizeTurnMonitorData
@@ -2434,6 +2459,17 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           onClose={() => setIsMasterNoteOpen(false)}
           onSave={handleSaveMasterNote}
           setMasterNoteContent={setMasterNoteContent}
+        />
+
+        <SessionNotesPanel
+          campaignId={campaignId}
+          sessions={sessions}
+          npcs={npcs}
+          players={players}
+          quests={quests}
+          locations={locations}
+          storyEvents={storyEvents}
+          onReloadSessions={loadSessions}
         />
 
         <NextSessionChecklist />
