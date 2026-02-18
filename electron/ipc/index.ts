@@ -140,6 +140,13 @@ ipcMain.handle('sessions:delete', async (_event, sessionId: string) => {
   return true
 })
 
+ipcMain.handle('sessions:updateStatus', async (_event, sessionId: string, status: string) => {
+  return await db.session.update({
+    where: { id: sessionId },
+    data: { status }
+  })
+})
+
 ipcMain.handle('sessions:getByCampaign', async (_event, campaignId: string) => {
   return await db.session.findMany({
     where: { campaignId },

@@ -24,6 +24,7 @@ const electronAPI = {
     start: (campaignId: string) => ipcRenderer.invoke('sessions:start', campaignId),
     stop: (sessionId: string) => ipcRenderer.invoke('sessions:stop', sessionId),
     delete: (sessionId: string) => ipcRenderer.invoke('sessions:delete', sessionId),
+    updateStatus: (sessionId: string, status: string) => ipcRenderer.invoke('sessions:updateStatus', sessionId, status),
     getByCapaign: (campaignId: string) => ipcRenderer.invoke('sessions:getByCampaign', campaignId)
   },
   

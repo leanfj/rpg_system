@@ -19,11 +19,13 @@ import QuestPanel from './QuestPanel'
 import LocationPanel from './LocationPanel'
 import StoryEventPanel from './StoryEventPanel'
 import SessionNotesPanel from './SessionNotesPanel'
+import SessionManagementPanel from './SessionManagementPanel'
 import Toast from './Toast'
 import TimelinePanel from './TimelinePanel'
 import TurnsPanel from './TurnsPanel'
 import XpReportPanel from './XpReportPanel'
 import './CampaignDashboard.css'
+import './SessionManagementPanel.css'
 
 interface Campaign {
   id: string
@@ -36,6 +38,9 @@ interface Session {
   campaignId: string
   startedAt: Date
   endedAt?: Date
+  title?: string
+  notes?: string
+  status: string
 }
 
 interface CampaignDashboardProps {
@@ -1412,14 +1417,14 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
   const [locationForm, setLocationForm] = useState({
     name: '',
     description: '',
-    status: 'unknown' as 'unknown' | 'safe' | 'dangerous',
+    status: 'unknown',
     notes: ''
   })
   const [storyEventForm, setStoryEventForm] = useState({
     title: '',
     description: '',
-    status: 'active' as 'active' | 'resolved' | 'ignored',
-    impact: 'medium' as 'short' | 'medium' | 'long'
+    status: 'active',
+    impact: 'medium'
   })
   const [sessionNotes, setSessionNotes] = useState<SessionNote[]>([])
   const [relatedNotesForNpc, setRelatedNotesForNpc] = useState<SessionNote[]>([])
@@ -2578,6 +2583,8 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       <section className="dashboard-grid">
         <TimelinePanel sessions={sessions} formatDate={formatDate} />
 
+        
+
         <NpcPanel
           npcs={npcs}
           npcForm={npcForm}
@@ -2782,6 +2789,11 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           onClose={() => setIsMasterNoteOpen(false)}
           onSave={handleSaveMasterNote}
           setMasterNoteContent={setMasterNoteContent}
+        />
+
+        <SessionManagementPanel 
+          sessions={sessions} 
+          onSessionsChange={loadSessions}
         />
 
         <SessionNotesPanel

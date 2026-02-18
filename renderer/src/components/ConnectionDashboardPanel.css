@@ -1,0 +1,240 @@
+.connection-dashboard {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-left: 4px solid #0ea5e9;
+}
+
+.connection-dashboard header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(14, 165, 233, 0.3);
+  padding-bottom: 1rem;
+}
+
+.connection-dashboard h3 {
+  color: #e0f2fe;
+  font-size: 1.25rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.connection-header-info {
+  font-size: 0.85rem;
+  color: #7dd3fc;
+  font-weight: 300;
+}
+
+.connection-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Estatísticas */
+.connection-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 0.75rem;
+}
+
+.connection-stat {
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.connection-stat:hover {
+  background: rgba(14, 165, 233, 0.15);
+  border-color: rgba(14, 165, 233, 0.5);
+}
+
+.stat-number {
+  font-size: 1.75rem;
+  font-weight: bold;
+  color: #7dd3fc;
+}
+
+.stat-text {
+  font-size: 0.75rem;
+  color: #0ea5e9;
+  margin-top: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Lista de Conexões */
+.connection-list {
+  background: rgba(14, 165, 233, 0.05);
+  border-left: 3px solid #0ea5e9;
+  padding: 1rem;
+  border-radius: 4px;
+}
+
+.connection-list h5 {
+  color: #e0f2fe;
+  font-size: 0.95rem;
+  margin: 0 0 1rem 0;
+  font-weight: 600;
+}
+
+.connection-item {
+  margin-bottom: 1rem;
+}
+
+.connection-item:last-child {
+  margin-bottom: 0;
+}
+
+.connection-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.entity-icon {
+  font-size: 1.1rem;
+  width: 24px;
+  text-align: center;
+}
+
+.entity-name {
+  color: #e0f2fe;
+  font-weight: 500;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.entity-type {
+  font-size: 0.7rem;
+  color: #7dd3fc;
+  background: rgba(14, 165, 233, 0.2);
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.connection-bar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 0.25rem;
+  height: 24px;
+}
+
+.connection-bar {
+  height: 18px;
+  background: linear-gradient(90deg, #0ea5e9 0%, #06b6d4 100%);
+  border-radius: 3px;
+  transition: all 0.3s ease;
+  min-width: 2px;
+}
+
+.connection-bar:hover {
+  filter: brightness(1.2);
+}
+
+.connection-count {
+  font-size: 0.75rem;
+  color: #7dd3fc;
+  font-weight: bold;
+  min-width: 30px;
+  text-align: right;
+  padding-right: 0.25rem;
+}
+
+/* Breakdown por tipo */
+.connection-breakdown {
+  background: rgba(14, 165, 233, 0.05);
+  border-left: 3px solid #06b6d4;
+  padding: 1rem;
+  border-radius: 4px;
+}
+
+.connection-breakdown h5 {
+  color: #e0f2fe;
+  font-size: 0.95rem;
+  margin: 0 0 0.75rem 0;
+  font-weight: 600;
+}
+
+.breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 0.5rem;
+}
+
+.breakdown-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.breakdown-item:hover {
+  background: rgba(14, 165, 233, 0.2);
+  transform: scale(1.05);
+}
+
+.breakdown-icon {
+  font-size: 1.5rem;
+}
+
+.breakdown-label {
+  font-size: 0.7rem;
+  color: #7dd3fc;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.breakdown-count {
+  font-size: 1.25rem;
+  color: #e0f2fe;
+  font-weight: bold;
+}
+
+/* Estados */
+.text-muted {
+  color: #7dd3fc;
+  font-size: 0.9rem;
+  font-style: italic;
+  text-align: center;
+  padding: 2rem 0;
+}
+
+/* Responsivo */
+@media (max-width: 768px) {
+  .connection-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .connection-label {
+    flex-wrap: wrap;
+  }
+
+  .entity-name {
+    flex: 0 0 100%;
+  }
+
+  .entity-type {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+  }
+
+  .breakdown-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

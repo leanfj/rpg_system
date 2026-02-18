@@ -225,6 +225,7 @@ interface ElectronAPI {
     start: (campaignId: string) => Promise<Session>
     stop: (sessionId: string) => Promise<boolean>
     delete: (sessionId: string) => Promise<boolean>
+    updateStatus: (sessionId: string, status: string) => Promise<Session>
     getByCapaign: (campaignId: string) => Promise<Session[]>
   }
   
