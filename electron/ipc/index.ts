@@ -334,6 +334,23 @@ ipcMain.handle('sessionNotes:getBySession', async (_event, sessionId: string) =>
   })
 })
 
+ipcMain.handle('sessionNotes:getByCampaign', async (_event, campaignId: string) => {
+  return await db.sessionNote.findMany({
+    where: {
+      session: { campaignId }
+    },
+    include: {
+      session: { select: { id: true, title: true, startedAt: true } },
+      npcs: { include: { npc: true } },
+      players: { include: { player: true } },
+      quests: { include: { quest: true } },
+      locations: { include: { location: true } },
+      events: { include: { event: true } }
+    },
+    orderBy: [{ session: { startedAt: 'desc' } }, { phase: 'asc' }, { order: 'asc' }]
+  })
+})
+
 ipcMain.handle('sessionNotes:create', async (_event, data: {
   sessionId: string
   phase: string

@@ -9,6 +9,8 @@ interface SessionNotesPanelProps {
   locations: Array<{ id: string; name: string }>
   storyEvents: Array<{ id: string; title: string }>
   onReloadSessions?: () => void
+  onNotesChanged?: () => void
+  showToast?: (message: string, type: 'success' | 'error' | 'info' | 'warning') => void
 }
 
 interface SessionNote {
@@ -41,11 +43,14 @@ function SessionNotesPanel({
   quests,
   locations,
   storyEvents,
-  onReloadSessions
+  onReloadSessions,
+  onNotesChanged,
+  showToast
 }: SessionNotesPanelProps) {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [notes, setNotes] = useState<SessionNote[]>([])
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [currentPhase, setCurrentPhase] = useState<Phase>('before')
   const [noteForm, setNoteForm] = useState({
@@ -57,6 +62,11 @@ function SessionNotesPanel({
     locationIds: [] as string[],
     eventIds: [] as string[]
   })
+  
+  // Filtros
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterImportance, setFilterImportance] = useState<'all' | 'normal' | 'high'>('all')
+  const [filterPhase, setFilterPhase] = useState<Phase | 'all'>('all')
 
   // Carrega notas quando sessao muda
   useEffect(() => {
@@ -109,6 +119,7 @@ function SessionNotesPanel({
   const handleSaveNote = async () => {
     if (!selectedSessionId || !noteForm.content.trim()) return
 
+    setIsSaving(true)
     try {
       const connections = {
         npcIds: noteForm.npcIds,
@@ -124,6 +135,7 @@ function SessionNotesPanel({
           importance: noteForm.importance,
           connections
         })
+        showToast?.('Nota atualizada com sucesso!', 'success')
       } else {
         const maxOrder = notes
           .filter((n) => n.phase === currentPhase)
@@ -137,12 +149,17 @@ function SessionNotesPanel({
           order: maxOrder + 1,
           connections
         })
+        showToast?.('Nota criada com sucesso!', 'success')
       }
 
       await loadNotes(selectedSessionId)
       setIsModalOpen(false)
-    } catch (error) {
-      console.error('Erro ao salvar nota:', error)
+      onNotesChanged?.() // Atualiza dados relacionados no dashboard
+    } catch (err) {
+      console.error('Erro ao salvar nota:', err)
+      showToast?.('Erro ao salvar nota. Tente novamente.', 'error')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -151,11 +168,14 @@ function SessionNotesPanel({
 
     try {
       await window.electron.sessionNotes.delete(noteId)
+      showToast?.('Nota removida com sucesso!', 'success')
       if (selectedSessionId) {
         await loadNotes(selectedSessionId)
       }
-    } catch (error) {
-      console.error('Erro ao remover nota:', error)
+      onNotesChanged?.() // Atualiza dados relacionados no dashboard
+    } catch (err) {
+      console.error('Erro ao remover nota:', err)
+      showToast?.('Erro ao remover nota. Tente novamente.', 'error')
     }
   }
 
@@ -182,7 +202,40 @@ function SessionNotesPanel({
     })
   }
 
-  const notesByPhase = (phase: Phase) => notes.filter((n) => n.phase === phase)
+  // Filtragem de notas
+  const filterNotes = (notesToFilter: SessionNote[]) => {
+    return notesToFilter.filter((note) => {
+      // Filtro de busca (busca no conteúdo e em entidades conectadas)
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase()
+        const matchContent = note.content.toLowerCase().includes(searchLower)
+        const matchNpc = note.npcs?.some((n) => n.npc.name.toLowerCase().includes(searchLower))
+        const matchPlayer = note.players?.some((p) => p.player.name.toLowerCase().includes(searchLower))
+        const matchQuest = note.quests?.some((q) => q.quest.title.toLowerCase().includes(searchLower))
+        const matchLocation = note.locations?.some((l) => l.location.name.toLowerCase().includes(searchLower))
+        const matchEvent = note.events?.some((e) => e.event.title.toLowerCase().includes(searchLower))
+        
+        if (!matchContent && !matchNpc && !matchPlayer && !matchQuest && !matchLocation && !matchEvent) {
+          return false
+        }
+      }
+
+      // Filtro de importância
+      if (filterImportance !== 'all' && note.importance !== filterImportance) {
+        return false
+      }
+
+      return true
+    })
+  }
+
+  const notesByPhase = (phase: Phase) => {
+    const phaseNotes = notes.filter((n) => n.phase === phase)
+    return filterNotes(phaseNotes)
+  }
+
+  const allFilteredNotes = filterNotes(notes)
+  const hasActiveFilters = searchTerm !== '' || filterImportance !== 'all' || filterPhase !== 'all'
 
   const renderNoteCard = (note: SessionNote) => (
     <div key={note.id} className={`session-note-card ${note.importance === 'high' ? 'high' : ''}`}>
@@ -249,25 +302,112 @@ function SessionNotesPanel({
         </div>
       </header>
 
+      {selectedSessionId && (
+        <div className="session-notes-filters">
+          <div className="filter-search">
+            <input
+              type="text"
+              placeholder="Buscar notas, NPCs, jogadores..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+            {searchTerm && (
+              <button
+                className="clear-search"
+                onClick={() => setSearchTerm('')}
+                title="Limpar busca"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <div className="filter-controls">
+            <label className="filter-label">
+              <span>Fase:</span>
+              <select
+                value={filterPhase}
+                onChange={(e) => setFilterPhase(e.target.value as Phase | 'all')}
+                className="filter-select"
+              >
+                <option value="all">Todas</option>
+                <option value="before">Antes</option>
+                <option value="during">Durante</option>
+                <option value="after">Pós</option>
+              </select>
+            </label>
+            <label className="filter-label">
+              <span>Importância:</span>
+              <select
+                value={filterImportance}
+                onChange={(e) => setFilterImportance(e.target.value as 'all' | 'normal' | 'high')}
+                className="filter-select"
+              >
+                <option value="all">Todas</option>
+                <option value="normal">Normal</option>
+                <option value="high">Alta</option>
+              </select>
+            </label>
+            {hasActiveFilters && (
+              <button
+                className="btn-secondary small"
+                onClick={() => {
+                  setSearchTerm('')
+                  setFilterImportance('all')
+                  setFilterPhase('all')
+                }}
+              >
+                Limpar filtros
+              </button>
+            )}
+          </div>
+          {hasActiveFilters && (
+            <div className="filter-results">
+              {allFilteredNotes.length} nota(s) encontrada(s)
+            </div>
+          )}
+        </div>
+      )}
+
       {selectedSessionId ? (
         <div className="session-notes-phases">
-          {(['before', 'during', 'after'] as Phase[]).map((phase) => (
-            <div key={phase} className="session-notes-phase">
+          {filterPhase === 'all' ? (
+            // Mostrar todas as fases
+            (['before', 'during', 'after'] as Phase[]).map((phase) => (
+              <div key={phase} className="session-notes-phase">
+                <div className="phase-header">
+                  <h4>{PHASE_LABELS[phase]}</h4>
+                  <button className="btn-add-note" onClick={() => openCreateNote(phase)}>
+                    + Adicionar
+                  </button>
+                </div>
+                <div className="session-notes-list">
+                  {notesByPhase(phase).length === 0 ? (
+                    <p className="text-muted">Nenhuma nota nesta fase.</p>
+                  ) : (
+                    notesByPhase(phase).map(renderNoteCard)
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            // Mostrar apenas a fase filtrada
+            <div className="session-notes-phase">
               <div className="phase-header">
-                <h4>{PHASE_LABELS[phase]}</h4>
-                <button className="btn-add-note" onClick={() => openCreateNote(phase)}>
+                <h4>{PHASE_LABELS[filterPhase]}</h4>
+                <button className="btn-add-note" onClick={() => openCreateNote(filterPhase)}>
                   + Adicionar
                 </button>
               </div>
               <div className="session-notes-list">
-                {notesByPhase(phase).length === 0 ? (
+                {notesByPhase(filterPhase).length === 0 ? (
                   <p className="text-muted">Nenhuma nota nesta fase.</p>
                 ) : (
-                  notesByPhase(phase).map(renderNoteCard)
+                  notesByPhase(filterPhase).map(renderNoteCard)
                 )}
               </div>
             </div>
-          ))}
+          )}
         </div>
       ) : (
         <div className="dashboard-empty">Selecione ou crie uma sessão para gerenciar as notas.</div>
@@ -395,15 +535,19 @@ function SessionNotesPanel({
               </div>
 
               <div className="player-form-actions">
-                <button className="btn-secondary" onClick={() => setIsModalOpen(false)}>
+                <button 
+                  className="btn-secondary" 
+                  onClick={() => setIsModalOpen(false)}
+                  disabled={isSaving}
+                >
                   Cancelar
                 </button>
                 <button
                   className="btn-primary"
                   onClick={handleSaveNote}
-                  disabled={!noteForm.content.trim()}
+                  disabled={!noteForm.content.trim() || isSaving}
                 >
-                  {editingNoteId ? 'Salvar' : 'Criar'}
+                  {isSaving ? 'Salvando...' : editingNoteId ? 'Salvar' : 'Criar'}
                 </button>
               </div>
             </div>

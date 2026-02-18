@@ -239,6 +239,7 @@ const electronAPI = {
   // === Notas de sessao ===
   sessionNotes: {
     getBySession: (sessionId: string) => ipcRenderer.invoke('sessionNotes:getBySession', sessionId),
+    getByCampaign: (campaignId: string) => ipcRenderer.invoke('sessionNotes:getByCampaign', campaignId),
     create: (data: {
       sessionId: string
       phase: string

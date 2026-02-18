@@ -1,19 +1,17 @@
 import type { Dispatch, SetStateAction } from 'react'
 
-type QuestBase = {
+type LocationBase = {
   id: string
-  title: string
+  name: string
+  description?: string
   status: string
-  objective?: string
-  reward?: string
   notes?: string
 }
 
-type QuestForm = {
-  title: string
+type LocationForm = {
+  name: string
+  description: string
   status: string
-  objective: string
-  reward: string
   notes: string
 }
 
@@ -25,20 +23,33 @@ type SessionNote = {
   session?: { id: string; title?: string; startedAt: Date }
 }
 
-type QuestPanelProps<TQuest extends QuestBase> = {
-  quests: TQuest[]
-  questForm: QuestForm
-  isQuestModalOpen: boolean
-  isQuestReadOnly: boolean
-  editingQuestId: string | null
+type LocationPanelProps<TLocation extends LocationBase> = {
+  locations: TLocation[]
+  locationForm: LocationForm
+  isLocationModalOpen: boolean
+  isLocationReadOnly: boolean
+  editingLocationId: string | null
   relatedNotes?: SessionNote[]
   onCreate: () => void
-  onView: (quest: TQuest) => void
-  onEdit: (quest: TQuest) => void
-  onDelete: (questId: string) => void
+  onView: (location: TLocation) => void
+  onEdit: (location: TLocation) => void
+  onDelete: (locationId: string) => void
   onCloseModal: () => void
   onSave: () => void
-  setQuestForm: Dispatch<SetStateAction<QuestForm>>
+  setLocationForm: Dispatch<SetStateAction<LocationForm>>
+}
+
+const getStatusLabel = (status: string) => {
+  if (status === 'unknown') return 'Desconhecido'
+  if (status === 'safe') return 'Seguro'
+  if (status === 'dangerous') return 'Perigoso'
+  return status
+}
+
+const getStatusClass = (status: string) => {
+  if (status === 'safe') return 'safe'
+  if (status === 'dangerous') return 'dangerous'
+  return 'unknown'
 }
 
 const getPhaseLabel = (phase: string) => {
@@ -48,28 +59,12 @@ const getPhaseLabel = (phase: string) => {
   return phase
 }
 
-const getQuestStatusLabel = (status: string) => {
-  if (status === 'open') return 'Em aberto'
-  if (status === 'in_progress') return 'Em andamento'
-  if (status === 'done') return 'Concluida'
-  if (status === 'failed') return 'Falhou'
-  return status
-}
-
-const getQuestStatusClass = (status: string) => {
-  if (status === 'open') return 'open'
-  if (status === 'in_progress') return 'progress'
-  if (status === 'done') return 'done'
-  if (status === 'failed') return 'failed'
-  return 'open'
-}
-
-function QuestPanel<TQuest extends QuestBase>({
-  quests,
-  questForm,
-  isQuestModalOpen,
-  isQuestReadOnly,
-  editingQuestId,
+function LocationPanel<TLocation extends LocationBase>({
+  locations,
+  locationForm,
+  isLocationModalOpen,
+  isLocationReadOnly,
+  editingLocationId,
   relatedNotes = [],
   onCreate,
   onView,
@@ -77,30 +72,34 @@ function QuestPanel<TQuest extends QuestBase>({
   onDelete,
   onCloseModal,
   onSave,
-  setQuestForm
-}: QuestPanelProps<TQuest>) {
+  setLocationForm
+}: LocationPanelProps<TLocation>) {
   return (
-    <article className="dashboard-card quests">
+    <article className="dashboard-card locations">
       <header>
-        <h3>Quest log</h3>
+        <h3>Locais da campanha</h3>
       </header>
-      <ul className="quest-list">
-        {quests.length === 0 ? (
-          <li className="dashboard-empty">Nenhuma quest cadastrada.</li>
+      <div className="location-grid">
+        {locations.length === 0 ? (
+          <div className="dashboard-empty">Nenhum local cadastrado.</div>
         ) : (
-          quests.map((quest) => {
-            const statusLabel = getQuestStatusLabel(quest.status)
-            const statusClass = getQuestStatusClass(quest.status)
+          locations.map((location) => {
+            const statusLabel = getStatusLabel(location.status)
+            const statusClass = getStatusClass(location.status)
             return (
-              <li key={quest.id} className="quest-item">
-                <div className="quest-main">
-                  <span className={`quest-status ${statusClass}`}>{statusLabel}</span>
-                  <strong>{quest.title}</strong>
+              <div key={location.id} className="location-card">
+                <div className="location-header">
+                  <strong>{location.name}</strong>
+                  <span className={`location-status ${statusClass}`}>{statusLabel}</span>
                 </div>
-                <div className="quest-actions">
+                {location.description && (
+                  <p className="location-description">{location.description}</p>
+                )}
+                {location.notes && <p className="location-notes">{location.notes}</p>}
+                <div className="location-actions">
                   <button
-                    className="quest-icon-btn"
-                    onClick={() => onView(quest)}
+                    className="action-icon-btn"
+                    onClick={() => onView(location)}
                     aria-label="Ver detalhes"
                     title="Detalhes"
                   >
@@ -110,9 +109,9 @@ function QuestPanel<TQuest extends QuestBase>({
                     </svg>
                   </button>
                   <button
-                    className="quest-icon-btn"
-                    onClick={() => onEdit(quest)}
-                    aria-label="Editar quest"
+                    className="action-icon-btn"
+                    onClick={() => onEdit(location)}
+                    aria-label="Editar local"
                     title="Editar"
                   >
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -121,9 +120,9 @@ function QuestPanel<TQuest extends QuestBase>({
                     </svg>
                   </button>
                   <button
-                    className="quest-icon-btn danger"
-                    onClick={() => onDelete(quest.id)}
-                    aria-label="Remover quest"
+                    className="action-icon-btn danger"
+                    onClick={() => onDelete(location.id)}
+                    aria-label="Remover local"
                     title="Remover"
                   >
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -135,25 +134,25 @@ function QuestPanel<TQuest extends QuestBase>({
                     </svg>
                   </button>
                 </div>
-              </li>
+              </div>
             )
           })
         )}
-      </ul>
-      <button className="btn-secondary small" onClick={onCreate}>
-        + Adicionar quest
-      </button>
+        <button className="location-add" onClick={onCreate}>
+          + Adicionar Local
+        </button>
+      </div>
 
-      {isQuestModalOpen && (
+      {isLocationModalOpen && (
         <div className="modal-overlay" onClick={onCloseModal}>
           <div className="modal" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h4>
-                {editingQuestId
-                  ? isQuestReadOnly
-                    ? 'Detalhes da quest'
-                    : 'Editar quest'
-                  : 'Nova quest'}
+                {editingLocationId
+                  ? isLocationReadOnly
+                    ? 'Detalhes do Local'
+                    : 'Editar Local'
+                  : 'Novo Local'}
               </h4>
               <button className="modal-close" onClick={onCloseModal}>
                 ✕
@@ -161,46 +160,42 @@ function QuestPanel<TQuest extends QuestBase>({
             </div>
             <div className="player-form">
               <div className="player-form-section">
-                <h5>Dados da quest</h5>
+                <h5>Informações básicas</h5>
                 <div className="player-form-grid">
                   <label className="field">
-                    <span>Titulo</span>
+                    <span>Nome</span>
                     <input
                       type="text"
-                      value={questForm.title}
-                      readOnly={isQuestReadOnly}
-                      onChange={(event) => setQuestForm({ ...questForm, title: event.target.value })}
+                      value={locationForm.name}
+                      readOnly={isLocationReadOnly}
+                      onChange={(event) =>
+                        setLocationForm({ ...locationForm, name: event.target.value })
+                      }
                     />
                   </label>
                   <label className="field">
                     <span>Status</span>
                     <select
-                      value={questForm.status}
-                      disabled={isQuestReadOnly}
-                      onChange={(event) => setQuestForm({ ...questForm, status: event.target.value })}
+                      value={locationForm.status}
+                      disabled={isLocationReadOnly}
+                      onChange={(event) =>
+                        setLocationForm({ ...locationForm, status: event.target.value })
+                      }
                     >
-                      <option value="open">Em aberto</option>
-                      <option value="in_progress">Em andamento</option>
-                      <option value="done">Concluida</option>
-                      <option value="failed">Falhou</option>
+                      <option value="unknown">Desconhecido</option>
+                      <option value="safe">Seguro</option>
+                      <option value="dangerous">Perigoso</option>
                     </select>
                   </label>
-                  <label className="field">
-                    <span>Objetivo</span>
-                    <input
-                      type="text"
-                      value={questForm.objective}
-                      readOnly={isQuestReadOnly}
-                      onChange={(event) => setQuestForm({ ...questForm, objective: event.target.value })}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Recompensa</span>
-                    <input
-                      type="text"
-                      value={questForm.reward}
-                      readOnly={isQuestReadOnly}
-                      onChange={(event) => setQuestForm({ ...questForm, reward: event.target.value })}
+                  <label className="field field-full">
+                    <span>Descrição</span>
+                    <textarea
+                      value={locationForm.description}
+                      readOnly={isLocationReadOnly}
+                      onChange={(event) =>
+                        setLocationForm({ ...locationForm, description: event.target.value })
+                      }
+                      rows={3}
                     />
                   </label>
                 </div>
@@ -210,14 +205,17 @@ function QuestPanel<TQuest extends QuestBase>({
                 <label className="field">
                   <span>Observações</span>
                   <textarea
-                    value={questForm.notes}
-                    readOnly={isQuestReadOnly}
-                    onChange={(event) => setQuestForm({ ...questForm, notes: event.target.value })}
+                    value={locationForm.notes}
+                    readOnly={isLocationReadOnly}
+                    onChange={(event) =>
+                      setLocationForm({ ...locationForm, notes: event.target.value })
+                    }
+                    rows={3}
                   />
                 </label>
               </div>
 
-              {isQuestReadOnly && relatedNotes.length > 0 && (
+              {isLocationReadOnly && relatedNotes.length > 0 && (
                 <div className="player-form-section">
                   <h5>Notas de Sessão Relacionadas ({relatedNotes.length})</h5>
                   <div className="related-notes-list">
@@ -241,11 +239,11 @@ function QuestPanel<TQuest extends QuestBase>({
 
               <div className="player-form-actions">
                 <button className="btn-secondary" onClick={onCloseModal}>
-                  {isQuestReadOnly ? 'Fechar' : 'Cancelar'}
+                  {isLocationReadOnly ? 'Fechar' : 'Cancelar'}
                 </button>
-                {!isQuestReadOnly && (
+                {!isLocationReadOnly && (
                   <button className="btn-primary" onClick={onSave}>
-                    {editingQuestId ? 'Salvar' : 'Criar'}
+                    {editingLocationId ? 'Salvar' : 'Criar'}
                   </button>
                 )}
               </div>
@@ -257,4 +255,4 @@ function QuestPanel<TQuest extends QuestBase>({
   )
 }
 
-export default QuestPanel
+export default LocationPanel

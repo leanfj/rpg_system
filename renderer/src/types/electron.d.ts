@@ -289,6 +289,7 @@ interface ElectronAPI {
 
   sessionNotes: {
     getBySession: (sessionId: string) => Promise<SessionNote[]>
+    getByCampaign: (campaignId: string) => Promise<SessionNote[]>
     create: (data: {
       sessionId: string
       phase: string
