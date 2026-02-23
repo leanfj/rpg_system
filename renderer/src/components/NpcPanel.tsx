@@ -19,12 +19,21 @@ type NpcForm = {
   notes: string
 }
 
+type SessionNote = {
+  id: string
+  sessionId: string
+  phase: string
+  content: string
+  session?: { id: string; title?: string; startedAt: Date }
+}
+
 type NpcPanelProps<TNpc extends NpcBase> = {
   npcs: TNpc[]
   npcForm: NpcForm
   isNpcModalOpen: boolean
   isNpcReadOnly: boolean
   editingNpcId: string | null
+  relatedNotes?: SessionNote[]
   onCreate: () => void
   onView: (npc: TNpc) => void
   onEdit: (npc: TNpc) => void
@@ -34,12 +43,20 @@ type NpcPanelProps<TNpc extends NpcBase> = {
   setNpcForm: Dispatch<SetStateAction<NpcForm>>
 }
 
+const getPhaseLabel = (phase: string) => {
+  if (phase === 'before') return 'Antes'
+  if (phase === 'during') return 'Durante'
+  if (phase === 'after') return 'Pós'
+  return phase
+}
+
 function NpcPanel<TNpc extends NpcBase>({
   npcs,
   npcForm,
   isNpcModalOpen,
   isNpcReadOnly,
   editingNpcId,
+  relatedNotes = [],
   onCreate,
   onView,
   onEdit,
@@ -206,6 +223,29 @@ function NpcPanel<TNpc extends NpcBase>({
                   />
                 </label>
               </div>
+
+              {isNpcReadOnly && relatedNotes.length > 0 && (
+                <div className="player-form-section">
+                  <h5>Notas de Sessão Relacionadas ({relatedNotes.length})</h5>
+                  <div className="related-notes-list">
+                    {relatedNotes.map((note) => (
+                      <div key={note.id} className="related-note-item">
+                        <div className="related-note-header">
+                          <span className="related-note-phase">{getPhaseLabel(note.phase)}</span>
+                          {note.session && (
+                            <span className="related-note-session">
+                              {note.session.title ||
+                                new Date(note.session.startedAt).toLocaleDateString('pt-BR')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="related-note-content">{note.content}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="player-form-actions">
                 <button className="btn-secondary" onClick={onCloseModal}>
                   {isNpcReadOnly ? 'Fechar' : 'Cancelar'}

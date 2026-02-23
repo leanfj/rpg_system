@@ -17,6 +17,14 @@ type ProficiencyEntry = {
   value: number
 }
 
+type SessionNote = {
+  id: string
+  sessionId: string
+  phase: string
+  content: string
+  session?: { id: string; title?: string; startedAt: Date }
+}
+
 type PlayerBase = {
   id: string
   name: string
@@ -99,6 +107,7 @@ type PlayerPanelProps<TPlayer extends PlayerBase> = {
   computedProficiencyBonus: number
   isEditingPlayer: boolean
   editingPlayerId: string | null
+  relatedNotes?: SessionNote[]
   isInInitiative: (type: 'player' | 'monster', sourceId?: string) => boolean
   openAddToInitiative: (payload: AddToInitiativePayload) => void
   startCreatePlayer: () => void
@@ -119,6 +128,13 @@ type PlayerPanelProps<TPlayer extends PlayerBase> = {
   skillAbilityMap: Record<string, AbilityKey>
 }
 
+const getPhaseLabel = (phase: string) => {
+  if (phase === 'before') return 'Antes'
+  if (phase === 'during') return 'Durante'
+  if (phase === 'after') return 'Pós'
+  return phase
+}
+
 function PlayerPanel<TPlayer extends PlayerBase>({
   players,
   playerForm,
@@ -127,6 +143,7 @@ function PlayerPanel<TPlayer extends PlayerBase>({
   computedProficiencyBonus,
   isEditingPlayer,
   editingPlayerId,
+  relatedNotes = [],
   isInInitiative,
   openAddToInitiative,
   startCreatePlayer,
@@ -793,6 +810,29 @@ function PlayerPanel<TPlayer extends PlayerBase>({
                   />
                 </label>
               </div>
+
+              {editingPlayerId && relatedNotes.length > 0 && (
+                <div className="player-form-section">
+                  <h5>Notas de Sessão Relacionadas ({relatedNotes.length})</h5>
+                  <div className="related-notes-list">
+                    {relatedNotes.map((note) => (
+                      <div key={note.id} className="related-note-item">
+                        <div className="related-note-header">
+                          <span className="related-note-phase">{getPhaseLabel(note.phase)}</span>
+                          {note.session && (
+                            <span className="related-note-session">
+                              {note.session.title ||
+                                new Date(note.session.startedAt).toLocaleDateString('pt-BR')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="related-note-content">{note.content}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="player-form-actions">
                 <button className="btn-secondary" onClick={() => setIsEditingPlayer(false)}>
                   Cancelar

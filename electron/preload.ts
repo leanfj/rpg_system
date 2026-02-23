@@ -24,6 +24,7 @@ const electronAPI = {
     start: (campaignId: string) => ipcRenderer.invoke('sessions:start', campaignId),
     stop: (sessionId: string) => ipcRenderer.invoke('sessions:stop', sessionId),
     delete: (sessionId: string) => ipcRenderer.invoke('sessions:delete', sessionId),
+    updateStatus: (sessionId: string, status: string) => ipcRenderer.invoke('sessions:updateStatus', sessionId, status),
     getByCapaign: (campaignId: string) => ipcRenderer.invoke('sessions:getByCampaign', campaignId)
   },
   
@@ -196,6 +197,77 @@ const electronAPI = {
   turnMonitor: {
     getByCampaign: (campaignId: string) => ipcRenderer.invoke('turnMonitor:getByCampaign', campaignId),
     save: (data: { campaignId: string; content: string }) => ipcRenderer.invoke('turnMonitor:save', data)
+  },
+
+  // === Locais ===
+  locations: {
+    getByCampaign: (campaignId: string) => ipcRenderer.invoke('locations:getByCampaign', campaignId),
+    create: (data: {
+      campaignId: string
+      name: string
+      description?: string
+      status?: string
+      notes?: string
+    }) => ipcRenderer.invoke('locations:create', data),
+    update: (id: string, data: {
+      name: string
+      description?: string
+      status?: string
+      notes?: string
+    }) => ipcRenderer.invoke('locations:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('locations:delete', id)
+  },
+
+  // === Eventos narrativos ===
+  storyEvents: {
+    getByCampaign: (campaignId: string) => ipcRenderer.invoke('storyEvents:getByCampaign', campaignId),
+    create: (data: {
+      campaignId: string
+      title: string
+      description?: string
+      status?: string
+      impact?: string
+    }) => ipcRenderer.invoke('storyEvents:create', data),
+    update: (id: string, data: {
+      title: string
+      description?: string
+      status?: string
+      impact?: string
+    }) => ipcRenderer.invoke('storyEvents:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('storyEvents:delete', id)
+  },
+
+  // === Notas de sessao ===
+  sessionNotes: {
+    getBySession: (sessionId: string) => ipcRenderer.invoke('sessionNotes:getBySession', sessionId),
+    getByCampaign: (campaignId: string) => ipcRenderer.invoke('sessionNotes:getByCampaign', campaignId),
+    create: (data: {
+      sessionId: string
+      phase: string
+      content: string
+      importance?: string
+      order?: number
+      connections?: {
+        npcIds?: string[]
+        playerIds?: string[]
+        questIds?: string[]
+        locationIds?: string[]
+        eventIds?: string[]
+      }
+    }) => ipcRenderer.invoke('sessionNotes:create', data),
+    update: (id: string, data: {
+      content?: string
+      importance?: string
+      order?: number
+      connections?: {
+        npcIds?: string[]
+        playerIds?: string[]
+        questIds?: string[]
+        locationIds?: string[]
+        eventIds?: string[]
+      }
+    }) => ipcRenderer.invoke('sessionNotes:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('sessionNotes:delete', id)
   },
   
     // === Escudo do Mestre ===

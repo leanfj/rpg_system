@@ -4,10 +4,11 @@ import SessionView from './components/SessionView'
 import CampaignList from './components/CampaignList'
 import RecordedSessions from './components/RecordedSessions'
 import CampaignDashboard from './components/CampaignDashboard'
+import ReportsPage from './components/ReportsPage'
 import DmShieldWindow from './components/DmShieldWindow'
 import './styles/App.css'
 
-type View = 'campaigns' | 'dashboard' | 'session' | 'recordings'
+type View = 'campaigns' | 'dashboard' | 'session' | 'recordings' | 'reports'
 
 function App() {
   const isDmShieldWindow = window.location.hash.startsWith('#/dm-shield')
@@ -75,6 +76,10 @@ function App() {
 
         {currentView === 'recordings' && (
           <RecordedSessions initialSessionId={lastRecordedSessionId} />
+        )}
+
+        {currentView === 'reports' && activeCampaignId && (
+          <ReportsPage campaignId={activeCampaignId} />
         )}
       </main>
     </div>

@@ -2,8 +2,8 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import './Sidebar.css'
 
 interface SidebarProps {
-  currentView: 'campaigns' | 'dashboard' | 'session' | 'recordings'
-  onNavigate: (view: 'campaigns' | 'dashboard' | 'session' | 'recordings') => void
+  currentView: 'campaigns' | 'dashboard' | 'session' | 'recordings' | 'reports'
+  onNavigate: (view: 'campaigns' | 'dashboard' | 'session' | 'recordings' | 'reports') => void
   hasActiveSession: boolean
   hasActiveCampaign: boolean
   isCollapsed: boolean
@@ -73,6 +73,16 @@ function Sidebar({
         >
           <span className="nav-icon">🗂️</span>
           <span className="nav-label">Sessões Gravadas</span>
+        </button>
+
+        <button
+          className={`nav-item ${currentView === 'reports' ? 'active' : ''}`}
+          onClick={() => onNavigate('reports')}
+          disabled={!hasActiveCampaign}
+          data-label="Relatórios"
+        >
+          <span className="nav-icon">📊</span>
+          <span className="nav-label">Relatórios</span>
         </button>
       </nav>
       

@@ -4,6 +4,7 @@ import { useCombatTracker, InitiativeEntry } from '../hooks/useCombatTracker'
 import { useMusicController } from '../hooks/useMusicController'
 import { useCampaignData } from '../hooks/useCampaignData'
 import { useTurnMonitorControls } from '../hooks/useTurnMonitorControls'
+import { useToast } from '../hooks/useToast'
 import CombatModals from './CombatModals'
 import CombatTrackerPanel from './CombatTrackerPanel'
 import DiceRollerPanel from './DiceRollerPanel'
@@ -15,10 +16,16 @@ import NextSessionChecklist from './NextSessionChecklist'
 import PinnedMonsterWindows from './PinnedMonsterWindows'
 import PlayerPanel from './PlayerPanel'
 import QuestPanel from './QuestPanel'
+import LocationPanel from './LocationPanel'
+import StoryEventPanel from './StoryEventPanel'
+import SessionNotesPanel from './SessionNotesPanel'
+import SessionManagementPanel from './SessionManagementPanel'
+import Toast from './Toast'
 import TimelinePanel from './TimelinePanel'
 import TurnsPanel from './TurnsPanel'
 import XpReportPanel from './XpReportPanel'
 import './CampaignDashboard.css'
+import './SessionManagementPanel.css'
 
 interface Campaign {
   id: string
@@ -31,6 +38,9 @@ interface Session {
   campaignId: string
   startedAt: Date
   endedAt?: Date
+  title?: string
+  notes?: string
+  status: string
 }
 
 interface CampaignDashboardProps {
@@ -105,6 +115,43 @@ interface Quest {
   notes?: string
   createdAt: Date
   updatedAt: Date
+}
+
+interface Location {
+  id: string
+  campaignId: string
+  name: string
+  description?: string
+  status: string
+  notes?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+interface StoryEvent {
+  id: string
+  campaignId: string
+  title: string
+  description?: string
+  status: string
+  impact?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+interface SessionNote {
+  id: string
+  sessionId: string
+  phase: string
+  content: string
+  importance?: string
+  order?: number
+  session?: { id: string; title?: string; startedAt: Date }
+  npcs?: Array<{ npc: NPC }>
+  players?: Array<{ player: PlayerCharacter }>
+  quests?: Array<{ quest: Quest }>
+  locations?: Array<{ location: Location }>
+  events?: Array<{ event: StoryEvent }>
 }
 
 interface MasterNote {
@@ -1291,13 +1338,22 @@ interface ProficiencyEntry {
 type AbilityKey = 'strength' | 'dexterity' | 'constitution' | 'intelligence' | 'wisdom' | 'charisma'
 
 function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProps) {
+  const { toasts, removeToast, success, error, info } = useToast()
   const [isMasterNoteOpen, setIsMasterNoteOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [isNpcModalOpen, setIsNpcModalOpen] = useState(false)
   const [isNpcReadOnly, setIsNpcReadOnly] = useState(false)
   const [editingNpcId, setEditingNpcId] = useState<string | null>(null)
   const [isQuestModalOpen, setIsQuestModalOpen] = useState(false)
   const [isQuestReadOnly, setIsQuestReadOnly] = useState(false)
   const [editingQuestId, setEditingQuestId] = useState<string | null>(null)
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false)
+  const [isLocationReadOnly, setIsLocationReadOnly] = useState(false)
+  const [editingLocationId, setEditingLocationId] = useState<string | null>(null)
+  const [isStoryEventModalOpen, setIsStoryEventModalOpen] = useState(false)
+  const [isStoryEventReadOnly, setIsStoryEventReadOnly] = useState(false)
+  const [editingStoryEventId, setEditingStoryEventId] = useState<string | null>(null)
   const [isEditingPlayer, setIsEditingPlayer] = useState(false)
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null)
   const [savingThrowEntries, setSavingThrowEntries] = useState<ProficiencyEntry[]>([])
@@ -1358,12 +1414,32 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     reward: '',
     notes: ''
   })
+  const [locationForm, setLocationForm] = useState({
+    name: '',
+    description: '',
+    status: 'unknown',
+    notes: ''
+  })
+  const [storyEventForm, setStoryEventForm] = useState({
+    title: '',
+    description: '',
+    status: 'active',
+    impact: 'medium'
+  })
+  const [sessionNotes, setSessionNotes] = useState<SessionNote[]>([])
+  const [relatedNotesForNpc, setRelatedNotesForNpc] = useState<SessionNote[]>([])
+  const [relatedNotesForQuest, setRelatedNotesForQuest] = useState<SessionNote[]>([])
+  const [relatedNotesForPlayer, setRelatedNotesForPlayer] = useState<SessionNote[]>([])
+  const [relatedNotesForLocation, setRelatedNotesForLocation] = useState<SessionNote[]>([])
+  const [relatedNotesForStoryEvent, setRelatedNotesForStoryEvent] = useState<SessionNote[]>([])
   const {
     campaign,
     sessions,
     players,
     npcs,
     quests,
+    locations,
+    storyEvents,
     masterNote,
     masterNoteContent,
     setMasterNoteContent,
@@ -1376,8 +1452,10 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     loadPlayers,
     loadNpcs,
     loadQuests,
+    loadLocations,
+    loadStoryEvents,
     saveTurnMonitor
-  } = useCampaignData<Campaign, Session, PlayerCharacter, NPC, Quest, MasterNote, TurnMonitorData>({
+  } = useCampaignData<Campaign, Session, PlayerCharacter, NPC, Quest, Location, StoryEvent, MasterNote, TurnMonitorData>({
     campaignId,
     createDefaultTurnMonitorData,
     normalizeTurnMonitorData
@@ -1524,6 +1602,29 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     }
     loadMonsters()
   }, [])
+
+  useEffect(() => {
+    const loadSessionNotes = async () => {
+      if (!campaignId) return
+      try {
+        const notes = await window.electron.sessionNotes.getByCampaign(campaignId)
+        setSessionNotes(notes)
+      } catch (error) {
+        console.error('Erro ao carregar notas de sessão:', error)
+      }
+    }
+    loadSessionNotes()
+  }, [campaignId])
+
+  const reloadSessionNotes = async () => {
+    if (!campaignId) return
+    try {
+      const notes = await window.electron.sessionNotes.getByCampaign(campaignId)
+      setSessionNotes(notes)
+    } catch (error) {
+      console.error('Erro ao recarregar notas de sessão:', error)
+    }
+  }
 
   // Carrega imagem dos monstros fixados
   useEffect(() => {
@@ -1711,6 +1812,11 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     setSkillEntries(parseProficiencyEntries(player.skills, getDefaultSkills()))
     setEditingPlayerId(player.id)
     setIsEditingPlayer(true)
+    // Filter related notes
+    const related = sessionNotes.filter(note => 
+      note.players?.some(p => p.player.id === player.id)
+    )
+    setRelatedNotesForPlayer(related)
   }
 
   const startEditNpc = (npc: NPC) => {
@@ -1725,6 +1831,11 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     setEditingNpcId(npc.id)
     setIsNpcReadOnly(false)
     setIsNpcModalOpen(true)
+    // Filter related notes
+    const related = sessionNotes.filter(note => 
+      note.npcs?.some(n => n.npc.id === npc.id)
+    )
+    setRelatedNotesForNpc(related)
   }
 
   const startEditQuest = (quest: Quest) => {
@@ -1738,6 +1849,11 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     setEditingQuestId(quest.id)
     setIsQuestReadOnly(false)
     setIsQuestModalOpen(true)
+    // Filter related notes
+    const related = sessionNotes.filter(note => 
+      note.quests?.some(q => q.quest.id === quest.id)
+    )
+    setRelatedNotesForQuest(related)
   }
 
   const startViewNpc = (npc: NPC) => {
@@ -1752,6 +1868,11 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     setEditingNpcId(npc.id)
     setIsNpcReadOnly(true)
     setIsNpcModalOpen(true)
+    // Filter related notes
+    const related = sessionNotes.filter(note => 
+      note.npcs?.some(n => n.npc.id === npc.id)
+    )
+    setRelatedNotesForNpc(related)
   }
 
   const startViewQuest = (quest: Quest) => {
@@ -1765,6 +1886,11 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     setEditingQuestId(quest.id)
     setIsQuestReadOnly(true)
     setIsQuestModalOpen(true)
+    // Filter related notes
+    const related = sessionNotes.filter(note => 
+      note.quests?.some(q => q.quest.id === quest.id)
+    )
+    setRelatedNotesForQuest(related)
   }
 
   const handleSavePlayer = async () => {
@@ -1835,22 +1961,28 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       notes: npcForm.notes || undefined
     }
 
+    setIsSaving(true)
     try {
       if (editingNpcId) {
         await window.electron.npcs.update(editingNpcId, payload)
+        success('NPC atualizado com sucesso!')
       } else {
         await window.electron.npcs.create({
           campaignId,
           ...payload
         })
+        success('NPC criado com sucesso!')
       }
       setIsNpcModalOpen(false)
       setEditingNpcId(null)
       setIsNpcReadOnly(false)
       resetNpcForm()
       loadNpcs()
-    } catch (error) {
-      console.error('Erro ao salvar NPC:', error)
+    } catch (err) {
+      console.error('Erro ao salvar NPC:', err)
+      error('Erro ao salvar NPC. Tente novamente.')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -1863,22 +1995,206 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       notes: questForm.notes || undefined
     }
 
+    setIsSaving(true)
     try {
       if (editingQuestId) {
         await window.electron.quests.update(editingQuestId, payload)
+        success('Quest atualizada com sucesso!')
       } else {
         await window.electron.quests.create({
           campaignId,
           ...payload
         })
+        success('Quest criada com sucesso!')
       }
       setIsQuestModalOpen(false)
       setEditingQuestId(null)
       setIsQuestReadOnly(false)
       resetQuestForm()
       loadQuests()
-    } catch (error) {
-      console.error('Erro ao salvar quest:', error)
+    } catch (err) {
+      console.error('Erro ao salvar quest:', err)
+      error('Erro ao salvar quest. Tente novamente.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const startCreateLocation = () => {
+    setLocationForm({
+      name: '',
+      description: '',
+      status: 'unknown',
+      notes: ''
+    })
+    setEditingLocationId(null)
+    setIsLocationReadOnly(false)
+    setIsLocationModalOpen(true)
+    setRelatedNotesForLocation([])
+  }
+
+  const startViewLocation = (location: Location) => {
+    setLocationForm({
+      name: location.name,
+      description: location.description || '',
+      status: location.status as 'unknown' | 'safe' | 'dangerous',
+      notes: location.notes || ''
+    })
+    setEditingLocationId(location.id)
+    setIsLocationReadOnly(true)
+    setIsLocationModalOpen(true)
+    // Filter related notes
+    const related = sessionNotes.filter(note => 
+      note.locations?.some(l => l.location.id === location.id)
+    )
+    setRelatedNotesForLocation(related)
+  }
+
+  const startEditLocation = (location: Location) => {
+    setLocationForm({
+      name: location.name,
+      description: location.description || '',
+      status: location.status as 'unknown' | 'safe' | 'dangerous',
+      notes: location.notes || ''
+    })
+    setEditingLocationId(location.id)
+    setIsLocationReadOnly(false)
+    setIsLocationModalOpen(true)
+    // Filter related notes
+    const related = sessionNotes.filter(note => 
+      note.locations?.some(l => l.location.id === location.id)
+    )
+    setRelatedNotesForLocation(related)
+  }
+
+  const handleSaveLocation = async () => {
+    const payload = {
+      name: locationForm.name,
+      description: locationForm.description || undefined,
+      status: locationForm.status,
+      notes: locationForm.notes || undefined
+    }
+
+    try {
+      if (editingLocationId) {
+        await window.electron.locations.update(editingLocationId, payload)
+        success('Localização atualizada com sucesso!')
+      } else {
+        await window.electron.locations.create({
+          campaignId,
+          ...payload
+        })
+        success('Localização criada com sucesso!')
+      }
+      setIsLocationModalOpen(false)
+      setEditingLocationId(null)
+      setIsLocationReadOnly(false)
+      startCreateLocation()
+      loadLocations()
+    } catch (err) {
+      console.error('Erro ao salvar localização:', err)
+      error('Erro ao salvar localização. Tente novamente.')
+    }
+  }
+
+  const handleDeleteLocation = async (locationId: string) => {
+    if (!confirm('Deseja remover esta localização?')) return
+    try {
+      await window.electron.locations.delete(locationId)
+      success('Localização removida com sucesso!')
+      loadLocations()
+    } catch (err) {
+      console.error('Erro ao remover localização:', err)
+      error('Erro ao remover localização. Tente novamente.')
+    }
+  }
+
+  const startCreateStoryEvent = () => {
+    setStoryEventForm({
+      title: '',
+      description: '',
+      status: 'active',
+      impact: 'medium'
+    })
+    setEditingStoryEventId(null)
+    setIsStoryEventReadOnly(false)
+    setIsStoryEventModalOpen(true)
+    setRelatedNotesForStoryEvent([])
+  }
+
+  const startViewStoryEvent = (event: StoryEvent) => {
+    setStoryEventForm({
+      title: event.title,
+      description: event.description || '',
+      status: event.status as 'active' | 'resolved' | 'ignored',
+      impact: (event.impact || 'medium') as 'short' | 'medium' | 'long'
+    })
+    setEditingStoryEventId(event.id)
+    setIsStoryEventReadOnly(true)
+    setIsStoryEventModalOpen(true)
+    // Filter related notes
+    const related = sessionNotes.filter(note => 
+      note.events?.some(e => e.event.id === event.id)
+    )
+    setRelatedNotesForStoryEvent(related)
+  }
+
+  const startEditStoryEvent = (event: StoryEvent) => {
+    setStoryEventForm({
+      title: event.title,
+      description: event.description || '',
+      status: event.status as 'active' | 'resolved' | 'ignored',
+      impact: (event.impact || 'medium') as 'short' | 'medium' | 'long'
+    })
+    setEditingStoryEventId(event.id)
+    setIsStoryEventReadOnly(false)
+    setIsStoryEventModalOpen(true)
+    // Filter related notes
+    const related = sessionNotes.filter(note => 
+      note.events?.some(e => e.event.id === event.id)
+    )
+    setRelatedNotesForStoryEvent(related)
+  }
+
+  const handleSaveStoryEvent = async () => {
+    const payload = {
+      title: storyEventForm.title,
+      description: storyEventForm.description || undefined,
+      status: storyEventForm.status,
+      impact: storyEventForm.impact
+    }
+
+    try {
+      if (editingStoryEventId) {
+        await window.electron.storyEvents.update(editingStoryEventId, payload)
+        success('Evento atualizado com sucesso!')
+      } else {
+        await window.electron.storyEvents.create({
+          campaignId,
+          ...payload
+        })
+        success('Evento criado com sucesso!')
+      }
+      setIsStoryEventModalOpen(false)
+      setEditingStoryEventId(null)
+      setIsStoryEventReadOnly(false)
+      startCreateStoryEvent()
+      loadStoryEvents()
+    } catch (err) {
+      console.error('Erro ao salvar evento:', err)
+      error('Erro ao salvar evento. Tente novamente.')
+    }
+  }
+
+  const handleDeleteStoryEvent = async (eventId: string) => {
+    if (!confirm('Deseja remover este evento?')) return
+    try {
+      await window.electron.storyEvents.delete(eventId)
+      success('Evento removido com sucesso!')
+      loadStoryEvents()
+    } catch (err) {
+      console.error('Erro ao remover evento:', err)
+      error('Erro ao remover evento. Tente novamente.')
     }
   }
 
@@ -1896,9 +2212,11 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     if (!confirm('Deseja remover este NPC?')) return
     try {
       await window.electron.npcs.delete(npcId)
+      success('NPC removido com sucesso!')
       loadNpcs()
-    } catch (error) {
-      console.error('Erro ao remover NPC:', error)
+    } catch (err) {
+      console.error('Erro ao remover NPC:', err)
+      error('Erro ao remover NPC. Tente novamente.')
     }
   }
 
@@ -2265,12 +2583,15 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
       <section className="dashboard-grid">
         <TimelinePanel sessions={sessions} formatDate={formatDate} />
 
+        
+
         <NpcPanel
           npcs={npcs}
           npcForm={npcForm}
           isNpcModalOpen={isNpcModalOpen}
           isNpcReadOnly={isNpcReadOnly}
           editingNpcId={editingNpcId}
+          relatedNotes={relatedNotesForNpc}
           onCreate={startCreateNpc}
           onView={startViewNpc}
           onEdit={startEditNpc}
@@ -2288,6 +2609,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           computedProficiencyBonus={computedProficiencyBonus}
           isEditingPlayer={isEditingPlayer}
           editingPlayerId={editingPlayerId}
+          relatedNotes={relatedNotesForPlayer}
           isInInitiative={isInInitiative}
           openAddToInitiative={openAddToInitiative}
           startCreatePlayer={startCreatePlayer}
@@ -2316,6 +2638,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           isQuestModalOpen={isQuestModalOpen}
           isQuestReadOnly={isQuestReadOnly}
           editingQuestId={editingQuestId}
+          relatedNotes={relatedNotesForQuest}
           onCreate={startCreateQuest}
           onView={startViewQuest}
           onEdit={startEditQuest}
@@ -2326,6 +2649,38 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
         />
 
         <DiceRollerPanel />
+
+        <LocationPanel
+          locations={locations}
+          locationForm={locationForm}
+          isLocationModalOpen={isLocationModalOpen}
+          isLocationReadOnly={isLocationReadOnly}
+          editingLocationId={editingLocationId}
+          relatedNotes={relatedNotesForLocation}
+          onCreate={startCreateLocation}
+          onView={startViewLocation}
+          onEdit={startEditLocation}
+          onDelete={handleDeleteLocation}
+          onCloseModal={() => setIsLocationModalOpen(false)}
+          onSave={handleSaveLocation}
+          setLocationForm={setLocationForm}
+        />
+
+        <StoryEventPanel
+          storyEvents={storyEvents}
+          storyEventForm={storyEventForm}
+          isStoryEventModalOpen={isStoryEventModalOpen}
+          isStoryEventReadOnly={isStoryEventReadOnly}
+          editingStoryEventId={editingStoryEventId}
+          relatedNotes={relatedNotesForStoryEvent}
+          onCreate={startCreateStoryEvent}
+          onView={startViewStoryEvent}
+          onEdit={startEditStoryEvent}
+          onDelete={handleDeleteStoryEvent}
+          onCloseModal={() => setIsStoryEventModalOpen(false)}
+          onSave={handleSaveStoryEvent}
+          setStoryEventForm={setStoryEventForm}
+        />
 
         <CombatTrackerPanel
           initiativeList={initiativeList}
@@ -2436,6 +2791,28 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           setMasterNoteContent={setMasterNoteContent}
         />
 
+        <SessionManagementPanel 
+          sessions={sessions} 
+          onSessionsChange={loadSessions}
+        />
+
+        <SessionNotesPanel
+          campaignId={campaignId}
+          sessions={sessions}
+          npcs={npcs}
+          players={players}
+          quests={quests}
+          locations={locations}
+          storyEvents={storyEvents}
+          onReloadSessions={loadSessions}
+          onNotesChanged={reloadSessionNotes}
+          showToast={(message, type) => {
+            if (type === 'success') success(message)
+            else if (type === 'error') error(message)
+            else if (type === 'info') info(message)
+          }}
+        />
+
         <NextSessionChecklist />
       </section>
 
@@ -2459,6 +2836,20 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
         translateActionName={translateActionName}
         translateDescription={translateDescription}
       />
+
+      {/* Toast Notifications */}
+      {toasts.length > 0 && (
+        <div className="toast-container">
+          {toasts.map((toast) => (
+            <Toast
+              key={toast.id}
+              message={toast.message}
+              type={toast.type}
+              onClose={() => removeToast(toast.id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

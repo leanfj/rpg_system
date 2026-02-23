@@ -2,18 +2,20 @@ import { useCallback, useEffect, useRef, useState, type Dispatch, type MutableRe
 
 type TurnMonitorStatus = 'idle' | 'saving' | 'saved' | 'error'
 
-type UseCampaignDataOptions<TCampaign, TSession, TPlayer, TNpc, TQuest, TMasterNote, TTurnMonitor> = {
+type UseCampaignDataOptions<TCampaign, TSession, TPlayer, TNpc, TQuest, TLocation, TStoryEvent, TMasterNote, TTurnMonitor> = {
   campaignId: string
   createDefaultTurnMonitorData: () => TTurnMonitor
   normalizeTurnMonitorData: (value?: Partial<TTurnMonitor> | null) => TTurnMonitor
 }
 
-type UseCampaignDataResult<TCampaign, TSession, TPlayer, TNpc, TQuest, TMasterNote, TTurnMonitor> = {
+type UseCampaignDataResult<TCampaign, TSession, TPlayer, TNpc, TQuest, TLocation, TStoryEvent, TMasterNote, TTurnMonitor> = {
   campaign: TCampaign | null
   sessions: TSession[]
   players: TPlayer[]
   npcs: TNpc[]
   quests: TQuest[]
+  locations: TLocation[]
+  storyEvents: TStoryEvent[]
   masterNote: TMasterNote | null
   masterNoteContent: string
   setMasterNoteContent: Dispatch<SetStateAction<string>>
@@ -27,6 +29,8 @@ type UseCampaignDataResult<TCampaign, TSession, TPlayer, TNpc, TQuest, TMasterNo
   loadPlayers: () => Promise<void>
   loadNpcs: () => Promise<void>
   loadQuests: () => Promise<void>
+  loadLocations: () => Promise<void>
+  loadStoryEvents: () => Promise<void>
   loadMasterNote: () => Promise<void>
   loadTurnMonitor: () => Promise<void>
   saveTurnMonitor: (data: TTurnMonitor, showStatus?: boolean) => Promise<void>
@@ -38,19 +42,23 @@ export const useCampaignData = <
   TPlayer,
   TNpc,
   TQuest,
+  TLocation,
+  TStoryEvent,
   TMasterNote,
   TTurnMonitor
 >({
   campaignId,
   createDefaultTurnMonitorData,
   normalizeTurnMonitorData
-}: UseCampaignDataOptions<TCampaign, TSession, TPlayer, TNpc, TQuest, TMasterNote, TTurnMonitor>):
-  UseCampaignDataResult<TCampaign, TSession, TPlayer, TNpc, TQuest, TMasterNote, TTurnMonitor> => {
+}: UseCampaignDataOptions<TCampaign, TSession, TPlayer, TNpc, TQuest, TLocation, TStoryEvent, TMasterNote, TTurnMonitor>):
+  UseCampaignDataResult<TCampaign, TSession, TPlayer, TNpc, TQuest, TLocation, TStoryEvent, TMasterNote, TTurnMonitor> => {
   const [campaign, setCampaign] = useState<TCampaign | null>(null)
   const [sessions, setSessions] = useState<TSession[]>([])
   const [players, setPlayers] = useState<TPlayer[]>([])
   const [npcs, setNpcs] = useState<TNpc[]>([])
   const [quests, setQuests] = useState<TQuest[]>([])
+  const [locations, setLocations] = useState<TLocation[]>([])
+  const [storyEvents, setStoryEvents] = useState<TStoryEvent[]>([])
   const [masterNote, setMasterNote] = useState<TMasterNote | null>(null)
   const [masterNoteContent, setMasterNoteContent] = useState('')
   const [turnMonitor, setTurnMonitor] = useState<TTurnMonitor>(() => createDefaultTurnMonitorData())
@@ -101,6 +109,24 @@ export const useCampaignData = <
       setQuests(data as TQuest[])
     } catch (error) {
       console.error('Erro ao carregar quests:', error)
+    }
+  }, [campaignId])
+
+  const loadLocations = useCallback(async () => {
+    try {
+      const data = await window.electron.locations.getByCampaign(campaignId)
+      setLocations(data as TLocation[])
+    } catch (error) {
+      console.error('Erro ao carregar locais:', error)
+    }
+  }, [campaignId])
+
+  const loadStoryEvents = useCallback(async () => {
+    try {
+      const data = await window.electron.storyEvents.getByCampaign(campaignId)
+      setStoryEvents(data as TStoryEvent[])
+    } catch (error) {
+      console.error('Erro ao carregar eventos:', error)
     }
   }, [campaignId])
 
@@ -155,6 +181,8 @@ export const useCampaignData = <
     loadPlayers()
     loadNpcs()
     loadQuests()
+    loadLocations()
+    loadStoryEvents()
     loadMasterNote()
     loadTurnMonitor()
   }, [
@@ -163,6 +191,8 @@ export const useCampaignData = <
     loadPlayers,
     loadNpcs,
     loadQuests,
+    loadLocations,
+    loadStoryEvents,
     loadMasterNote,
     loadTurnMonitor
   ])
@@ -173,6 +203,8 @@ export const useCampaignData = <
     players,
     npcs,
     quests,
+    locations,
+    storyEvents,
     masterNote,
     masterNoteContent,
     setMasterNoteContent,
@@ -186,6 +218,8 @@ export const useCampaignData = <
     loadPlayers,
     loadNpcs,
     loadQuests,
+    loadLocations,
+    loadStoryEvents,
     loadMasterNote,
     loadTurnMonitor,
     saveTurnMonitor
