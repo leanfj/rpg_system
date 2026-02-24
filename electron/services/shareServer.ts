@@ -36,6 +36,7 @@ type SharedPlayerRow = {
   level: number
   ancestry: string
   alignment: string | null
+  inspiration: boolean | number | null
   armorClass: number
   initiative: number | null
   speed: number | null
@@ -493,6 +494,7 @@ const renderPlayerSheet = (
     level: number
     ancestry: string
     alignment?: string | null
+    inspiration?: boolean | number | null
     armorClass: number
     initiative?: number | null
     speed?: number | null
@@ -524,6 +526,7 @@ const renderPlayerSheet = (
 ): string => {
   const currentHp = payload.currentHitPoints ?? payload.hitPoints
   const tempHp = payload.tempHitPoints ?? 0
+  const hasInspiration = Boolean(payload.inspiration)
   const savingThrowEntries = parseProficiencyEntries(payload.savingThrows)
   const skillEntries = parseProficiencyEntries(payload.skills)
 
@@ -582,6 +585,16 @@ const renderPlayerSheet = (
         border-radius: 999px;
         padding: 4px 10px;
         font-size: 0.82rem;
+      }
+      .chip.inspiration.active {
+        border-color: rgba(74, 222, 128, 0.55);
+        background: rgba(22, 101, 52, 0.45);
+        color: #bbf7d0;
+      }
+      .chip.inspiration.inactive {
+        border-color: rgba(148, 163, 184, 0.45);
+        background: rgba(51, 65, 85, 0.42);
+        color: #cbd5e1;
       }
       .grid {
         display: grid;
@@ -746,6 +759,9 @@ const renderPlayerSheet = (
         <div class="meta">
           ${payload.playerName ? `<span class="chip">Jogador: ${escapeHtml(payload.playerName)}</span>` : ''}
           ${payload.alignment ? `<span class="chip">Alinhamento: ${escapeHtml(payload.alignment)}</span>` : ''}
+          <span class="chip inspiration ${hasInspiration ? 'active' : 'inactive'}">
+            Inspiração: ${hasInspiration ? 'Disponível' : 'Indisponível'}
+          </span>
           ${payload.campaignName ? `<span class="chip">Campanha: ${escapeHtml(payload.campaignName)}</span>` : ''}
           <span class="chip">Atualizado: ${new Date(payload.updatedAt).toLocaleString('pt-BR')}</span>
         </div>
@@ -900,6 +916,7 @@ const getPlayerFromToken = async (token: string): Promise<SharedPlayerRow | null
       pc."level" AS "level",
       pc."ancestry" AS "ancestry",
       pc."alignment" AS "alignment",
+      pc."inspiration" AS "inspiration",
       pc."armorClass" AS "armorClass",
       pc."initiative" AS "initiative",
       pc."speed" AS "speed",
@@ -1135,6 +1152,7 @@ const handleShareRequest = async (req: IncomingMessage, res: ServerResponse): Pr
           level: player.level,
           ancestry: player.ancestry,
           alignment: player.alignment,
+          inspiration: player.inspiration,
           armorClass: player.armorClass,
           initiative: player.initiative,
           speed: player.speed,

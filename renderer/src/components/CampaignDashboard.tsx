@@ -2324,13 +2324,13 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     }
   }
 
-  const clearPlayerInspiration = async (player: PlayerCharacter) => {
-    if (!player.inspiration) return
+  const setPlayerInspiration = async (player: PlayerCharacter, value: boolean) => {
+    if (Boolean(player.inspiration) === value) return
     try {
-      await window.electron.players.update(player.id, buildPlayerUpdatePayload(player, { inspiration: false }))
+      await window.electron.players.update(player.id, buildPlayerUpdatePayload(player, { inspiration: value }))
       loadPlayers()
     } catch (error) {
-      console.error('Erro ao remover inspiração:', error)
+      console.error('Erro ao atualizar inspiração:', error)
     }
   }
 
@@ -2618,7 +2618,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           startEditPlayer={startEditPlayer}
           handleDeletePlayer={handleDeletePlayer}
           adjustPlayerHitPoints={adjustPlayerHitPoints}
-          clearPlayerInspiration={clearPlayerInspiration}
+          setPlayerInspiration={setPlayerInspiration}
           handleSavePlayer={handleSavePlayer}
           setIsEditingPlayer={setIsEditingPlayer}
           setPlayerForm={setPlayerForm}

@@ -123,7 +123,7 @@ type PlayerPanelProps<TPlayer extends PlayerBase> = {
   startEditPlayer: (player: TPlayer) => void
   handleDeletePlayer: (playerId: string) => void
   adjustPlayerHitPoints: (player: TPlayer, delta: number) => void | Promise<void>
-  clearPlayerInspiration: (player: TPlayer) => void | Promise<void>
+  setPlayerInspiration: (player: TPlayer, value: boolean) => void | Promise<void>
   handleSavePlayer: () => void | Promise<void>
   setIsEditingPlayer: (value: boolean) => void
   setPlayerForm: Dispatch<SetStateAction<PlayerForm>>
@@ -159,7 +159,7 @@ function PlayerPanel<TPlayer extends PlayerBase>({
   startEditPlayer,
   handleDeletePlayer,
   adjustPlayerHitPoints,
-  clearPlayerInspiration,
+  setPlayerInspiration,
   handleSavePlayer,
   setIsEditingPlayer,
   setPlayerForm,
@@ -324,16 +324,14 @@ function PlayerPanel<TPlayer extends PlayerBase>({
                 <div className="player-header">
                   <div className="player-title">
                     <strong>{player.name}</strong>
-                    {player.inspiration && (
-                      <button
-                        className="player-inspiration"
-                        onClick={() => clearPlayerInspiration(player)}
-                        title="Remover inspiração"
-                        aria-label="Remover inspiração"
-                      >
-                        Inspiração
-                      </button>
-                    )}
+                    <button
+                      className={`player-inspiration ${player.inspiration ? 'active' : 'inactive'}`}
+                      onClick={() => void setPlayerInspiration(player, !player.inspiration)}
+                      title={player.inspiration ? 'Remover inspiração' : 'Ativar inspiração'}
+                      aria-label={player.inspiration ? 'Remover inspiração' : 'Ativar inspiração'}
+                    >
+                      {player.inspiration ? 'Inspiração ativa' : 'Ativar inspiração'}
+                    </button>
                   </div>
                   <div className="player-actions">
                     <div className="player-hp-controls">
