@@ -625,6 +625,18 @@ const renderPlayerSheet = (
         padding: 8px;
         text-align: center;
       }
+      .stat.inspiration {
+        border-color: rgba(148, 163, 184, 0.42);
+        background: rgba(51, 65, 85, 0.38);
+      }
+      .stat.inspiration.active {
+        border-color: rgba(74, 222, 128, 0.65);
+        background: rgba(22, 101, 52, 0.5);
+      }
+      .stat.inspiration.inactive {
+        border-color: rgba(148, 163, 184, 0.42);
+        background: rgba(51, 65, 85, 0.38);
+      }
       .stat small { display: block; color: var(--muted); }
       .stat strong { font-size: 1.2rem; }
       ul {
@@ -777,6 +789,10 @@ const renderPlayerSheet = (
             <div class="stat"><small>Iniciativa</small><strong>${payload.initiative ?? 0}</strong></div>
             <div class="stat"><small>Desloc.</small><strong>${payload.speed ?? 0}</strong></div>
             <div class="stat"><small>Percepção</small><strong>${payload.passivePerception ?? 10}</strong></div>
+            <div class="stat inspiration ${hasInspiration ? 'active' : 'inactive'}">
+              <small>Inspiração</small>
+              <strong>${hasInspiration ? 'Ativa' : 'Inativa'}</strong>
+            </div>
           </div>
           <p style="margin-top: 10px; color: var(--muted);">Bônus de proficiência: <strong>${formatModifier(payload.proficiencyBonus ?? 2)}</strong></p>
         </section>
