@@ -31,8 +31,43 @@ model Campaign {
   masterNotes MasterNote[]
   turnMonitor TurnMonitor?
   playerCharacters PlayerCharacter[]
+  groupInventory GroupInventory?
   
   @@map("campaigns")
+}
+
+/// Inventário compartilhado do grupo por campanha
+model GroupInventory {
+  id         String   @id @default(cuid())
+  campaignId String
+  gold       Int      @default(0)
+  silver     Int      @default(0)
+  copper     Int      @default(0)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  items    GroupInventoryItem[]
+
+  @@unique([campaignId])
+  @@map("group_inventories")
+}
+
+/// Item do inventário compartilhado do grupo
+model GroupInventoryItem {
+  id          String   @id @default(cuid())
+  inventoryId String
+  name        String
+  quantity    Int      @default(1)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  inventory GroupInventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryId])
+  @@map("group_inventory_items")
 }
 
 /// Monitoramento de turnos por campanha
@@ -242,9 +277,27 @@ model PlayerCharacter {
 
   campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   sessionNotes SessionNotePlayer[]
+  shareLinks PlayerShareLink[]
 
   @@index([campaignId])
   @@map("player_characters")
+}
+
+/// Link compartilhado de ficha de personagem jogador
+model PlayerShareLink {
+  id                String   @id @default(cuid())
+  playerCharacterId String
+  tokenHash         String   @unique
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  playerCharacter PlayerCharacter @relation(fields: [playerCharacterId], references: [id], onDelete: Cascade)
+
+  @@index([playerCharacterId])
+  @@index([expiresAt])
+  @@map("player_share_links")
 }
 
 /// Nota de sessão (Antes, Durante ou Após sessão)

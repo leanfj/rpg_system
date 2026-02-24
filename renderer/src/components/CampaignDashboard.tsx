@@ -7,7 +7,9 @@ import { useTurnMonitorControls } from '../hooks/useTurnMonitorControls'
 import { useToast } from '../hooks/useToast'
 import CombatModals from './CombatModals'
 import CombatTrackerPanel from './CombatTrackerPanel'
+import CreaturePvPanel from './CreaturePvPanel'
 import DiceRollerPanel from './DiceRollerPanel'
+import GroupInventoryPanel from './GroupInventoryPanel'
 import HeroPanel from './HeroPanel'
 import MasterNotesPanel from './MasterNotesPanel'
 import MusicPanel from './MusicPanel'
@@ -2322,13 +2324,13 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
     }
   }
 
-  const clearPlayerInspiration = async (player: PlayerCharacter) => {
-    if (!player.inspiration) return
+  const setPlayerInspiration = async (player: PlayerCharacter, value: boolean) => {
+    if (Boolean(player.inspiration) === value) return
     try {
-      await window.electron.players.update(player.id, buildPlayerUpdatePayload(player, { inspiration: false }))
+      await window.electron.players.update(player.id, buildPlayerUpdatePayload(player, { inspiration: value }))
       loadPlayers()
     } catch (error) {
-      console.error('Erro ao remover inspiração:', error)
+      console.error('Erro ao atualizar inspiração:', error)
     }
   }
 
@@ -2616,7 +2618,7 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           startEditPlayer={startEditPlayer}
           handleDeletePlayer={handleDeletePlayer}
           adjustPlayerHitPoints={adjustPlayerHitPoints}
-          clearPlayerInspiration={clearPlayerInspiration}
+          setPlayerInspiration={setPlayerInspiration}
           handleSavePlayer={handleSavePlayer}
           setIsEditingPlayer={setIsEditingPlayer}
           setPlayerForm={setPlayerForm}
@@ -2709,6 +2711,16 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           openMonsterStats={openMonsterStats}
         />
 
+        <GroupInventoryPanel campaignId={campaignId} />
+
+        <CreaturePvPanel
+          turnMonitor={turnMonitor}
+          srdMonsters={srdMonsters}
+          updatePvRow={updatePvRow}
+          openMonsterStats={openMonsterStats}
+          openAddToInitiative={openAddToInitiative}
+        />
+
         <CombatModals
           isAddingToInitiative={isAddingToInitiative}
           initiativeTargetEntry={initiativeTargetEntry}
@@ -2762,7 +2774,6 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           updateEncounterTable20={updateEncounterTable20}
           fillEncounterTable={fillEncounterTable}
           fillEncounterTable20={fillEncounterTable20}
-          updatePvRow={updatePvRow}
           updateMonsterRow={updateMonsterRow}
           updateEffectRow={updateEffectRow}
           setOrderOfMarch={setOrderOfMarch}
@@ -2776,9 +2787,6 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           encounterDifficulties={ENCOUNTER_DIFFICULTIES}
           encounterRolls={ENCOUNTER_ROLLS}
           encounterRolls20={ENCOUNTER_ROLLS_20}
-          srdMonsters={srdMonsters}
-          openMonsterStats={openMonsterStats}
-          openAddToInitiative={openAddToInitiative}
         />
 
         <MasterNotesPanel

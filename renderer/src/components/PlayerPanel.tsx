@@ -1,4 +1,5 @@
-import type { Dispatch, SetStateAction } from 'react'
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+import { buildQrCodeSvgDataUrl } from '../utils/qrcodeSvg'
 
 type ProficiencyLevel = 'none' | 'proficient' | 'expertise'
 
@@ -99,6 +100,14 @@ type AddToInitiativePayload = {
   ac: number
 }
 
+type PlayerShareResult = {
+  url: string
+  expiresAt: string | Date
+  localAddress: string
+  port: number
+  availableAddresses: string[]
+}
+
 type PlayerPanelProps<TPlayer extends PlayerBase> = {
   players: TPlayer[]
   playerForm: PlayerForm
@@ -114,7 +123,7 @@ type PlayerPanelProps<TPlayer extends PlayerBase> = {
   startEditPlayer: (player: TPlayer) => void
   handleDeletePlayer: (playerId: string) => void
   adjustPlayerHitPoints: (player: TPlayer, delta: number) => void | Promise<void>
-  clearPlayerInspiration: (player: TPlayer) => void | Promise<void>
+  setPlayerInspiration: (player: TPlayer, value: boolean) => void | Promise<void>
   handleSavePlayer: () => void | Promise<void>
   setIsEditingPlayer: (value: boolean) => void
   setPlayerForm: Dispatch<SetStateAction<PlayerForm>>
@@ -150,7 +159,7 @@ function PlayerPanel<TPlayer extends PlayerBase>({
   startEditPlayer,
   handleDeletePlayer,
   adjustPlayerHitPoints,
-  clearPlayerInspiration,
+  setPlayerInspiration,
   handleSavePlayer,
   setIsEditingPlayer,
   setPlayerForm,
@@ -163,6 +172,140 @@ function PlayerPanel<TPlayer extends PlayerBase>({
   savingThrowAbilityMap,
   skillAbilityMap
 }: PlayerPanelProps<TPlayer>) {
+  const [shareModal, setShareModal] = useState<{
+    playerId: string
+    playerName: string
+    link: PlayerShareResult | null
+    isLoading: boolean
+    isRevoking: boolean
+    error: string | null
+  } | null>(null)
+  const [copyFeedback, setCopyFeedback] = useState('')
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null)
+  const [qrCodeError, setQrCodeError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!copyFeedback) return
+
+    const timeout = window.setTimeout(() => {
+      setCopyFeedback('')
+    }, 1800)
+
+    return () => window.clearTimeout(timeout)
+  }, [copyFeedback])
+
+  useEffect(() => {
+    const shareUrl = shareModal?.link?.url
+    if (!shareUrl) {
+      setQrCodeDataUrl(null)
+      setQrCodeError(null)
+      return
+    }
+
+    try {
+      const dataUrl = buildQrCodeSvgDataUrl(shareUrl, {
+        size: 210,
+        margin: 2,
+        darkColor: '#08213f',
+        lightColor: '#f8fbff'
+      })
+      setQrCodeDataUrl(dataUrl)
+      setQrCodeError(null)
+    } catch (error) {
+      console.error('Erro ao gerar QR Code:', error)
+      setQrCodeDataUrl(null)
+      setQrCodeError('Nao foi possivel gerar o QR Code.')
+    }
+  }, [shareModal?.link?.url])
+
+  const handleOpenShare = async (player: TPlayer) => {
+    setCopyFeedback('')
+    setShareModal({
+      playerId: player.id,
+      playerName: player.name,
+      link: null,
+      isLoading: true,
+      isRevoking: false,
+      error: null
+    })
+
+    try {
+      const link = await window.electron.playerShare.create(player.id)
+      setShareModal((previous) => {
+        if (!previous || previous.playerId !== player.id) return previous
+        return {
+          ...previous,
+          link,
+          isLoading: false
+        }
+      })
+    } catch (error) {
+      console.error('Erro ao gerar link de compartilhamento:', error)
+      setShareModal((previous) => {
+        if (!previous || previous.playerId !== player.id) return previous
+        return {
+          ...previous,
+          isLoading: false,
+          error: 'Nao foi possivel gerar o link de compartilhamento.'
+        }
+      })
+    }
+  }
+
+  const handleCopyShareLink = async () => {
+    if (!shareModal?.link) return
+
+    try {
+      await navigator.clipboard.writeText(shareModal.link.url)
+      setCopyFeedback('Link copiado.')
+    } catch (error) {
+      console.error('Erro ao copiar link de compartilhamento:', error)
+      setCopyFeedback('Nao foi possivel copiar automaticamente.')
+    }
+  }
+
+  const handleRevokeShare = async () => {
+    if (!shareModal) return
+
+    setShareModal((previous) =>
+      previous
+        ? {
+            ...previous,
+            isRevoking: true,
+            error: null
+          }
+        : previous
+    )
+
+    try {
+      await window.electron.playerShare.revoke(shareModal.playerId)
+      setShareModal((previous) =>
+        previous
+          ? {
+              ...previous,
+              link: null,
+              isRevoking: false
+            }
+          : previous
+      )
+      setCopyFeedback('Acesso revogado.')
+    } catch (error) {
+      console.error('Erro ao revogar compartilhamento:', error)
+      setShareModal((previous) =>
+        previous
+          ? {
+              ...previous,
+              isRevoking: false,
+              error: 'Nao foi possivel revogar o acesso.'
+            }
+          : previous
+      )
+    }
+  }
+
+  const shareExpirationLabel =
+    shareModal?.link ? new Date(shareModal.link.expiresAt).toLocaleString('pt-BR') : null
+
   return (
     <article className="dashboard-card players">
       <header>
@@ -181,16 +324,14 @@ function PlayerPanel<TPlayer extends PlayerBase>({
                 <div className="player-header">
                   <div className="player-title">
                     <strong>{player.name}</strong>
-                    {player.inspiration && (
-                      <button
-                        className="player-inspiration"
-                        onClick={() => clearPlayerInspiration(player)}
-                        title="Remover inspiração"
-                        aria-label="Remover inspiração"
-                      >
-                        Inspiração
-                      </button>
-                    )}
+                    <button
+                      className={`player-inspiration ${player.inspiration ? 'active' : 'inactive'}`}
+                      onClick={() => void setPlayerInspiration(player, !player.inspiration)}
+                      title={player.inspiration ? 'Remover inspiração' : 'Ativar inspiração'}
+                      aria-label={player.inspiration ? 'Remover inspiração' : 'Ativar inspiração'}
+                    >
+                      {player.inspiration ? 'Inspiração ativa' : 'Ativar inspiração'}
+                    </button>
                   </div>
                   <div className="player-actions">
                     <div className="player-hp-controls">
@@ -237,6 +378,20 @@ function PlayerPanel<TPlayer extends PlayerBase>({
                   <span>CAR {formatMod(getAbilityMod(player.charisma))}</span>
                 </div>
                 <div className="player-footer">
+                  <button
+                    className="action-icon-btn share"
+                    onClick={() => void handleOpenShare(player)}
+                    aria-label="Compartilhar ficha"
+                    title="Gerar link local da ficha"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="6" cy="12" r="2" />
+                      <circle cx="18" cy="6" r="2" />
+                      <circle cx="18" cy="18" r="2" />
+                      <path d="M8 11l8-4" />
+                      <path d="M8 13l8 4" />
+                    </svg>
+                  </button>
                   {player.sheetUrl && (
                     <button
                       className="action-icon-btn sheet"
@@ -841,6 +996,90 @@ function PlayerPanel<TPlayer extends PlayerBase>({
                   {editingPlayerId ? 'Salvar' : 'Criar'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {shareModal && (
+        <div className="modal-overlay" onClick={() => setShareModal(null)}>
+          <div className="modal modal-small" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h4>Compartilhar ficha</h4>
+              <button className="modal-close" onClick={() => setShareModal(null)}>
+                ✕
+              </button>
+            </div>
+
+            <div className="initiative-modal-content player-share-content">
+              <div className="player-share-intro">
+                <span className="player-share-kicker">Acesso do jogador</span>
+                <strong>{shareModal.playerName}</strong>
+                <span>Compartilhamento para mesma rede local (Wi-Fi/LAN).</span>
+              </div>
+
+              {shareModal.isLoading && <p>Gerando link...</p>}
+
+              {shareModal.error && <p className="player-share-error">{shareModal.error}</p>}
+
+              {shareModal.link && (
+                <>
+                  <div className="player-share-qr-panel">
+                    {qrCodeDataUrl ? (
+                      <img className="player-share-qr-image" src={qrCodeDataUrl} alt="QR Code para abrir ficha" />
+                    ) : (
+                      <div className="player-share-qr-placeholder">QR indisponível</div>
+                    )}
+                    <div className="player-share-qr-text">
+                      <strong>Escaneie para abrir</strong>
+                      <span className="text-muted">Use a câmera do celular na mesma rede local.</span>
+                      {qrCodeError && <span className="player-share-error">{qrCodeError}</span>}
+                    </div>
+                  </div>
+                  <label className="field">
+                    <span>Link da ficha</span>
+                    <input type="text" readOnly value={shareModal.link.url} className="share-link-input" />
+                  </label>
+                  <p className="text-muted">Expira em {shareExpirationLabel}.</p>
+                  <p className="text-muted">
+                    Endereço principal: {shareModal.link.localAddress}:{shareModal.link.port}
+                  </p>
+                  {shareModal.link.availableAddresses.length > 1 && (
+                    <div className="share-addresses">
+                      <span>Outros IPs locais:</span>
+                      <ul className="share-address-list">
+                        {shareModal.link.availableAddresses.map((address) => (
+                          <li key={address}>
+                            {address}:{shareModal.link?.port}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div className="initiative-modal-actions">
+                <button className="btn-secondary" onClick={() => void handleCopyShareLink()} disabled={!shareModal.link}>
+                  Copiar link
+                </button>
+                <button
+                  className="btn-secondary"
+                  onClick={() => shareModal.link && void window.electron.shell.openExternal(shareModal.link.url)}
+                  disabled={!shareModal.link}
+                >
+                  Abrir
+                </button>
+                <button
+                  className="btn-secondary danger"
+                  onClick={() => void handleRevokeShare()}
+                  disabled={!shareModal.link || shareModal.isRevoking}
+                >
+                  {shareModal.isRevoking ? 'Revogando...' : 'Revogar'}
+                </button>
+              </div>
+
+              {copyFeedback && <p className="player-share-feedback">{copyFeedback}</p>}
             </div>
           </div>
         </div>

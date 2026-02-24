@@ -6,6 +6,7 @@ import './ipc'
 
 // Serviço de áudio (para configurar a janela)
 import { setMainWindow } from './services/audio'
+import { startShareServer, stopShareServer } from './services/shareServer'
 
 // Referência à janela principal
 let mainWindow: BrowserWindow | null = null
@@ -155,8 +156,14 @@ function buildAppMenu(): void {
 }
 
 // Inicialização do app
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   buildAppMenu()
+
+  try {
+    await startShareServer()
+  } catch (error) {
+    console.error('Erro ao iniciar servidor de compartilhamento local:', error)
+  }
 
   // Remove headers que bloqueiam iframes em sites externos
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
@@ -210,6 +217,12 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow()
     }
+  })
+})
+
+app.on('before-quit', () => {
+  void stopShareServer().catch((error) => {
+    console.error('Erro ao encerrar servidor de compartilhamento local:', error)
   })
 })
 

@@ -1,7 +1,21 @@
 import { app, BrowserWindow, dialog, ipcMain, IpcMainInvokeEvent, shell } from 'electron'
 import { promises as fs } from 'fs'
+import { randomBytes } from 'crypto'
 import path from 'path'
 import { db } from '../services/database'
+import {
+  broadcastGroupInventoryUpdate,
+  getShareServerInfo,
+  hashShareToken,
+  startShareServer
+} from '../services/shareServer'
+import {
+  addGroupInventoryItem,
+  deleteGroupInventoryItem,
+  getGroupInventoryByCampaign,
+  saveGroupInventoryEconomy,
+  updateGroupInventoryItem
+} from '../services/groupInventory'
 import { 
   startRecording, 
   stopRecording, 
@@ -686,6 +700,124 @@ ipcMain.handle('players:update', async (_event, id: string, data: {
 ipcMain.handle('players:delete', async (_event, id: string) => {
   await db.playerCharacter.delete({ where: { id } })
   return true
+})
+
+// === Compartilhamento de ficha ===
+ipcMain.handle('playerShare:create', async (_event, playerId: string) => {
+  await startShareServer()
+
+  const serverInfo = getShareServerInfo()
+  if (!serverInfo) {
+    throw new Error('Servidor de compartilhamento nao foi inicializado')
+  }
+
+  const player = await db.playerCharacter.findUnique({
+    where: { id: playerId },
+    select: { id: true }
+  })
+
+  if (!player) {
+    throw new Error('Personagem nao encontrado')
+  }
+
+  const now = new Date()
+  await db.$executeRaw`
+    UPDATE "player_share_links"
+    SET "revokedAt" = ${now}, "updatedAt" = ${now}
+    WHERE "playerCharacterId" = ${playerId}
+      AND "revokedAt" IS NULL
+  `
+
+  const token = randomBytes(24).toString('base64url')
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+
+  await db.$executeRaw`
+    INSERT INTO "player_share_links" (
+      "id",
+      "playerCharacterId",
+      "tokenHash",
+      "expiresAt",
+      "revokedAt",
+      "createdAt",
+      "updatedAt"
+    )
+    VALUES (
+      ${randomBytes(12).toString('hex')},
+      ${playerId},
+      ${hashShareToken(token)},
+      ${expiresAt},
+      ${null},
+      ${now},
+      ${now}
+    )
+  `
+
+  return {
+    url: `${serverInfo.baseUrl}/shared/character/${token}`,
+    expiresAt,
+    localAddress: serverInfo.host,
+    port: serverInfo.port,
+    availableAddresses: serverInfo.addresses
+  }
+})
+
+ipcMain.handle('playerShare:revoke', async (_event, playerId: string) => {
+  const now = new Date()
+  await db.$executeRaw`
+    UPDATE "player_share_links"
+    SET "revokedAt" = ${now}, "updatedAt" = ${now}
+    WHERE "playerCharacterId" = ${playerId}
+      AND "revokedAt" IS NULL
+  `
+
+  return true
+})
+
+// === Inventário compartilhado do grupo ===
+ipcMain.handle('groupInventory:getByCampaign', async (_event, campaignId: string) => {
+  return await getGroupInventoryByCampaign(campaignId)
+})
+
+ipcMain.handle(
+  'groupInventory:saveEconomy',
+  async (_event, campaignId: string, data: { gold?: number; silver?: number; copper?: number; notes?: string }) => {
+    const updated = await saveGroupInventoryEconomy(campaignId, data)
+    await broadcastGroupInventoryUpdate(campaignId, updated)
+    return updated
+  }
+)
+
+ipcMain.handle(
+  'groupInventory:addItem',
+  async (
+    _event,
+    campaignId: string,
+    data: { name?: string; quantity?: number; description?: string }
+  ) => {
+    const updated = await addGroupInventoryItem(campaignId, data)
+    await broadcastGroupInventoryUpdate(campaignId, updated)
+    return updated
+  }
+)
+
+ipcMain.handle(
+  'groupInventory:updateItem',
+  async (
+    _event,
+    campaignId: string,
+    itemId: string,
+    data: { name?: string; quantity?: number; description?: string }
+  ) => {
+    const updated = await updateGroupInventoryItem(campaignId, itemId, data)
+    await broadcastGroupInventoryUpdate(campaignId, updated)
+    return updated
+  }
+)
+
+ipcMain.handle('groupInventory:deleteItem', async (_event, campaignId: string, itemId: string) => {
+  const updated = await deleteGroupInventoryItem(campaignId, itemId)
+  await broadcastGroupInventoryUpdate(campaignId, updated)
+  return updated
 })
 
 // === Áudio ===

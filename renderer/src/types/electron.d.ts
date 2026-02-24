@@ -74,6 +74,33 @@ interface PlayerCharacter {
   updatedAt: Date
 }
 
+interface PlayerShareLink {
+  url: string
+  expiresAt: Date
+  localAddress: string
+  port: number
+  availableAddresses: string[]
+}
+
+interface GroupInventoryItem {
+  id: string
+  name: string
+  quantity: number
+  description: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface GroupInventory {
+  campaignId: string
+  gold: number
+  silver: number
+  copper: number
+  notes: string
+  items: GroupInventoryItem[]
+  updatedAt: string
+}
+
 interface NPC {
   id: string
   campaignId: string
@@ -248,6 +275,30 @@ interface ElectronAPI {
     create: (data: Omit<PlayerCharacter, 'id' | 'createdAt' | 'updatedAt'>) => Promise<PlayerCharacter>
     update: (id: string, data: Omit<PlayerCharacter, 'id' | 'campaignId' | 'createdAt' | 'updatedAt'>) => Promise<PlayerCharacter>
     delete: (id: string) => Promise<boolean>
+  }
+
+  playerShare: {
+    create: (playerId: string) => Promise<PlayerShareLink>
+    revoke: (playerId: string) => Promise<boolean>
+  }
+
+  groupInventory: {
+    getByCampaign: (campaignId: string) => Promise<GroupInventory>
+    saveEconomy: (
+      campaignId: string,
+      data: { gold?: number; silver?: number; copper?: number; notes?: string }
+    ) => Promise<GroupInventory>
+    addItem: (
+      campaignId: string,
+      data: { name?: string; quantity?: number; description?: string }
+    ) => Promise<GroupInventory>
+    updateItem: (
+      campaignId: string,
+      itemId: string,
+      data: { name?: string; quantity?: number; description?: string }
+    ) => Promise<GroupInventory>
+    deleteItem: (campaignId: string, itemId: string) => Promise<GroupInventory>
+    onUpdated: (callback: (campaignId: string, inventory: GroupInventory) => void) => () => void
   }
 
   npcs: {

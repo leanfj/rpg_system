@@ -143,6 +143,79 @@ const electronAPI = {
     delete: (id: string) => ipcRenderer.invoke('players:delete', id)
   },
 
+  // === Compartilhamento de ficha ===
+  playerShare: {
+    create: (playerId: string) => ipcRenderer.invoke('playerShare:create', playerId),
+    revoke: (playerId: string) => ipcRenderer.invoke('playerShare:revoke', playerId)
+  },
+
+  // === Inventário compartilhado do grupo ===
+  groupInventory: {
+    getByCampaign: (campaignId: string) => ipcRenderer.invoke('groupInventory:getByCampaign', campaignId),
+    saveEconomy: (
+      campaignId: string,
+      data: { gold?: number; silver?: number; copper?: number; notes?: string }
+    ) => ipcRenderer.invoke('groupInventory:saveEconomy', campaignId, data),
+    addItem: (
+      campaignId: string,
+      data: { name?: string; quantity?: number; description?: string }
+    ) => ipcRenderer.invoke('groupInventory:addItem', campaignId, data),
+    updateItem: (
+      campaignId: string,
+      itemId: string,
+      data: { name?: string; quantity?: number; description?: string }
+    ) => ipcRenderer.invoke('groupInventory:updateItem', campaignId, itemId, data),
+    deleteItem: (campaignId: string, itemId: string) =>
+      ipcRenderer.invoke('groupInventory:deleteItem', campaignId, itemId),
+    onUpdated: (
+      callback: (
+        campaignId: string,
+        inventory: {
+          campaignId: string
+          gold: number
+          silver: number
+          copper: number
+          notes: string
+          items: Array<{
+            id: string
+            name: string
+            quantity: number
+            description: string
+            createdAt: string
+            updatedAt: string
+          }>
+          updatedAt: string
+        }
+      ) => void
+    ) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        campaignId: string,
+        inventory: {
+          campaignId: string
+          gold: number
+          silver: number
+          copper: number
+          notes: string
+          items: Array<{
+            id: string
+            name: string
+            quantity: number
+            description: string
+            createdAt: string
+            updatedAt: string
+          }>
+          updatedAt: string
+        }
+      ) => {
+        callback(campaignId, inventory)
+      }
+
+      ipcRenderer.on('groupInventory:updated', handler)
+      return () => ipcRenderer.removeListener('groupInventory:updated', handler)
+    }
+  },
+
   // === NPCs ===
   npcs: {
     getByCampaign: (campaignId: string) => ipcRenderer.invoke('npcs:getByCampaign', campaignId),
