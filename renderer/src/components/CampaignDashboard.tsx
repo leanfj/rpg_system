@@ -7,7 +7,9 @@ import { useTurnMonitorControls } from '../hooks/useTurnMonitorControls'
 import { useToast } from '../hooks/useToast'
 import CombatModals from './CombatModals'
 import CombatTrackerPanel from './CombatTrackerPanel'
+import CreaturePvPanel from './CreaturePvPanel'
 import DiceRollerPanel from './DiceRollerPanel'
+import GroupInventoryPanel from './GroupInventoryPanel'
 import HeroPanel from './HeroPanel'
 import MasterNotesPanel from './MasterNotesPanel'
 import MusicPanel from './MusicPanel'
@@ -2709,6 +2711,16 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           openMonsterStats={openMonsterStats}
         />
 
+        <GroupInventoryPanel campaignId={campaignId} />
+
+        <CreaturePvPanel
+          turnMonitor={turnMonitor}
+          srdMonsters={srdMonsters}
+          updatePvRow={updatePvRow}
+          openMonsterStats={openMonsterStats}
+          openAddToInitiative={openAddToInitiative}
+        />
+
         <CombatModals
           isAddingToInitiative={isAddingToInitiative}
           initiativeTargetEntry={initiativeTargetEntry}
@@ -2762,7 +2774,6 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           updateEncounterTable20={updateEncounterTable20}
           fillEncounterTable={fillEncounterTable}
           fillEncounterTable20={fillEncounterTable20}
-          updatePvRow={updatePvRow}
           updateMonsterRow={updateMonsterRow}
           updateEffectRow={updateEffectRow}
           setOrderOfMarch={setOrderOfMarch}
@@ -2776,9 +2787,6 @@ function CampaignDashboard({ campaignId, onStartSession }: CampaignDashboardProp
           encounterDifficulties={ENCOUNTER_DIFFICULTIES}
           encounterRolls={ENCOUNTER_ROLLS}
           encounterRolls20={ENCOUNTER_ROLLS_20}
-          srdMonsters={srdMonsters}
-          openMonsterStats={openMonsterStats}
-          openAddToInitiative={openAddToInitiative}
         />
 
         <MasterNotesPanel
